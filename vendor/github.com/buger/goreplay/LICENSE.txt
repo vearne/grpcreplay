@@ -1,0 +1,28 @@
+Copyright (c) 2011-present Leonid Bugaev
+
+Portions of this software are licensed as follows:
+
+* All content residing under the "doc/" directory of this repository is licensed under "Creative Commons: CC BY-SA 4.0 license".
+* Files with the following names "pro.go", "s3_reader.go", "output_s3.go" are released under the commercial license specified in "COMM-LICENSE" file.
+* Content outside of the above mentioned directories or restrictions above is available under the "LGPLv3" license as defined below.
+
+
+GoReplay is an Open Source project licensed under the terms of
+the LGPLv3 license.  Please see <http://www.gnu.org/licenses/lgpl-3.0.html>
+for license text.
+
+As a special exception to the GNU Lesser General Public License version 3
+("LGPL3"), the copyright holders of this Library give you permission to
+convey to a third party a Combined Work that links statically or dynamically
+to this Library without providing any Minimal Corresponding Source or
+Minimal Application Code as set out in 4d or providing the installation
+information set out in section 4e, provided that you comply with the other
+provisions of LGPL3 and provided that you meet, for the Application the
+terms and conditions of the license(s) which apply to the Application.
+
+TLDR: You are free to use Gor subpackages like `byteutils` or `proto` in your commercial projects.
+
+
+GoReplay Pro has a commercial-friendly license allowing private forks
+and modifications of GoReplay.  Please see https://goreplay.org/pro.html for
+more detail.  You can find the commercial license terms in COMM-LICENSE.
