@@ -36,10 +36,10 @@ func init() {
 	packetQueueLen = new(expvar.Int)
 	messageQueueLen = new(expvar.Int)
 
-	//stats = expvar.NewMap("tcp")
-	//stats.Init()
-	//stats.Set("packet_queue", packetQueueLen)
-	//stats.Set("message_queue", messageQueueLen)
+	stats = expvar.NewMap("tcp")
+	stats.Init()
+	stats.Set("packet_queue", packetQueueLen)
+	stats.Set("message_queue", messageQueueLen)
 }
 
 type Dir int

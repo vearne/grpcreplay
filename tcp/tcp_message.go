@@ -55,6 +55,8 @@ type Stats struct {
 	End       time.Time // last packet's timestamp
 	SrcAddr   string
 	DstAddr   string
+	SrcPort   uint16
+	DstPort   uint16
 	Direction Dir
 	TimedOut  bool // timeout before getting the whole message
 	Truncated bool // last packet truncated due to max message size
@@ -348,6 +350,8 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 	m.Direction = pckt.Direction
 	m.SrcAddr = pckt.SrcIP.String()
 	m.DstAddr = pckt.DstIP.String()
+	m.SrcPort = pckt.SrcPort
+	m.DstPort = pckt.DstPort
 
 	parser.m[pckt.MessageID()] = m
 

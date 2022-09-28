@@ -53,6 +53,10 @@ func (e *Emitter) Close() {
 
 // CopyMulty copies from 1 reader to multiple writers
 func CopyMulty(src model.PluginReader, writers ...model.PluginWriter) error {
+	for {
+		slog.Debug("for-PluginRead")
+		src.PluginRead()
+	}
 	return nil
 	//wIndex := 0
 	//filteredRequests := freecache.NewCache(200 * 1024 * 1024) // 200M

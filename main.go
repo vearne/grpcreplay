@@ -46,7 +46,7 @@ func main() {
 	slog.Debug("--1--")
 
 	plugins := biz.NewPlugins(&settings)
-	slog.Debug("plugins:%s", plugins)
+	slog.Debug("plugins:%v", plugins)
 
 	go emitter.Start(plugins)
 
@@ -60,7 +60,7 @@ func main() {
 		})
 	}
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 	exit := 0
 	select {
 	case <-c:
@@ -68,7 +68,7 @@ func main() {
 	case <-closeCh:
 		exit = 0
 	}
-	emitter.Close()
+	//emitter.Close()
 	os.Exit(exit)
 }
 

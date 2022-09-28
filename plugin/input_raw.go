@@ -86,36 +86,33 @@ func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 
 // PluginRead reads meassage from this plugin
 func (i *RAWInput) PluginRead() (*model.Message, error) {
-	//var msgTCP *tcp.Message
+	var msgTCP *tcp.Message
+	var msg model.Message
+	slog.Debug("--1---")
 	select {
 	case <-i.quit:
 		return nil, ErrorStopped
-		//case msgTCP = <-i.listener.Messages():
-		//	msg.Data = msgTCP.Data()
+	case msgTCP = <-i.listener.Messages():
+		msg.Data = msgTCP.Data()
 	}
-	////var msgType byte = ResponsePayload
-	//if msgTCP.Direction == tcp.DirIncoming {
-	//	msgType = RequestPayload
-	//	if i.config.RealIPHeader != "" {
-	//		msg.Data = proto.SetHeader(msg.Data, []byte(i.config.RealIPHeader), []byte(msgTCP.SrcAddr))
-	//	}
-	//}
-	//msg.Meta = payloadHeader(msgType, msgTCP.UUID(), msgTCP.Start.UnixNano(), msgTCP.End.UnixNano()-msgTCP.Start.UnixNano())
-	//
-	//// to be removed....
-	//if msgTCP.Truncated {
-	//	Debug(2, "[INPUT-RAW] message truncated, increase copy-buffer-size")
-	//}
-	//// to be removed...
-	//if msgTCP.TimedOut {
-	//	Debug(2, "[INPUT-RAW] message timeout reached, increase input-raw-expire")
-	//}
-	//if i.config.Stats {
-	//	stat := msgTCP.Stats
-	//	go i.addStats(stat)
-	//}
-	//msgTCP = nil
-	//return &msg, nil
+
+	slog.Debug("SrcAddr:%v, DstAddr:%v", msgTCP.SrcAddr, msgTCP.DstAddr)
+	var gotAck bool = false
+	var seq uint32 = 0
+	if msgTCP.Direction == tcp.DirIncoming {
+		pkgList := msgTCP.Packets()
+		for _, pkg := range pkgList {
+			if pkg.ACK {
+				gotAck = true
+				seq = pkg.Ack
+			}
+		}
+	} else {
+	}
+
+	if gotAck {
+		sendRST(seq, msgTCP.DstAddr, msgTCP.DstPort, msgTCP.SrcAddr, msgTCP.SrcPort)
+	}
 	return nil, nil
 }
 
