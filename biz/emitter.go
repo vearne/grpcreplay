@@ -1,7 +1,6 @@
 package biz
 
 import (
-	"github.com/vearne/grpcreplay/model"
 	//"fmt"
 	slog "github.com/vearne/simplelog"
 	//"hash/fnv"
@@ -28,7 +27,7 @@ func (e *Emitter) Start(plugins *InOutPlugins) {
 	e.plugins = plugins
 	for _, in := range plugins.Inputs {
 		e.Add(1)
-		go func(in model.PluginReader) {
+		go func(in PluginReader) {
 			defer e.Done()
 			if err := CopyMulty(in, plugins.Outputs...); err != nil {
 				slog.Debug("[EMITTER] error during copy: %q", err)
@@ -52,7 +51,7 @@ func (e *Emitter) Close() {
 }
 
 // CopyMulty copies from 1 reader to multiple writers
-func CopyMulty(src model.PluginReader, writers ...model.PluginWriter) error {
+func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		slog.Debug("for-PluginRead")
 		src.PluginRead()

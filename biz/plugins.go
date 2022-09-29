@@ -3,7 +3,6 @@ package biz
 import (
 	"fmt"
 	"github.com/vearne/grpcreplay/config"
-	"github.com/vearne/grpcreplay/model"
 	"github.com/vearne/grpcreplay/plugin"
 	slog "github.com/vearne/simplelog"
 	"reflect"
@@ -11,8 +10,8 @@ import (
 
 // InOutPlugins struct for holding references to plugins
 type InOutPlugins struct {
-	Inputs  []model.PluginReader
-	Outputs []model.PluginWriter
+	Inputs  []PluginReader
+	Outputs []PluginWriter
 	All     []interface{}
 }
 
@@ -25,8 +24,16 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewRAWInput, item, settings.InputRAWConfig)
 	}
 
+	for _, options := range settings.InputFile {
+		plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
+	}
+
 	if settings.OutputStdout {
 		plugins.registerPlugin(plugin.NewDummyOutput)
+	}
+
+	for _, path := range settings.OutputFile {
+		plugins.registerPlugin(plugin.NewFileOutput, path, &settings.OutputFileConfig)
 	}
 
 	//for _, options := range settings.OutputGRPC {
@@ -54,11 +61,11 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 	plugin := vc.Call(vo)[0].Interface()
 
 	// Some of the output can be Readers as well because return responses
-	if r, ok := plugin.(model.PluginReader); ok {
+	if r, ok := plugin.(PluginReader); ok {
 		plugins.Inputs = append(plugins.Inputs, r)
 	}
 
-	if w, ok := plugin.(model.PluginWriter); ok {
+	if w, ok := plugin.(PluginWriter); ok {
 		plugins.Outputs = append(plugins.Outputs, w)
 	}
 	plugins.All = append(plugins.All, plugin)

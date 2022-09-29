@@ -16,11 +16,17 @@ var settings config.AppSettings
 func init() {
 	flag.DurationVar(&settings.ExitAfter, "exit-after", 0, "exit after specified duration")
 
+	// #################### input ######################
 	flag.Var(&config.MultiOption{&settings.InputRAW}, "input-raw",
 		`Capture traffic from given port (use RAW sockets and require *sudo* access):
                 # Capture traffic from 8080 port
                 grpcr --input-raw :8080 --output-grpc grpc://xxx.com
                `)
+
+	flag.Var(&config.MultiOption{&settings.InputFile}, "input-file", "Read requests from file")
+	flag.BoolVar(&settings.InputFileLoop, "input-file-loop", false, "")
+	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
+	// #################### output ######################
 	flag.BoolVar(&settings.OutputStdout, "output-stdout", false,
 		"Used for testing inputs. Just prints to console data coming from inputs.")
 

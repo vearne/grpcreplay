@@ -8,6 +8,12 @@ GrpcReplay is an open-source network monitoring tool which can record your grpc 
 
 ## input和output传递的消息
 ```
+{version} {uuid} {start-timestamp} 
+{data}                       // json字符串
+```
+
+data形如
+```
 {
 	"headers": {
 		"key1": [],

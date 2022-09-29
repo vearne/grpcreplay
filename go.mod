@@ -7,6 +7,7 @@ require (
 	github.com/buger/goreplay v1.3.2
 	github.com/fullstorydev/grpcurl v1.8.7
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
+	github.com/google/uuid v1.3.0
 	github.com/jhump/protoreflect v1.12.0
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/stretchr/testify v1.8.0
