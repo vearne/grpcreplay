@@ -16,4 +16,10 @@ func main() {
 			log.Println(item.String())
 		}
 	}
+	itfStatList, err := net.Interfaces()
+	for _, itf := range itfStatList {
+		log.Println(itf.Addrs)
+		log.Println(itf.Name)
+	}
+
 }

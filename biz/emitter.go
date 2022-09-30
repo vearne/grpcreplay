@@ -54,7 +54,7 @@ func (e *Emitter) Close() {
 func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		slog.Debug("for-PluginRead")
-		src.PluginRead()
+		src.Read()
 	}
 	return nil
 	//wIndex := 0

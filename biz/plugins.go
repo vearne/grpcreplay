@@ -24,13 +24,13 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewRAWInput, item, settings.InputRAWConfig)
 	}
 
-	for _, options := range settings.InputFile {
-		plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
-	}
-
-	if settings.OutputStdout {
-		plugins.registerPlugin(plugin.NewDummyOutput)
-	}
+	//for _, options := range settings.InputFile {
+	//	plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
+	//}
+	//
+	//if settings.OutputStdout {
+	//	plugins.registerPlugin(plugin.NewDummyOutput)
+	//}
 
 	for _, path := range settings.OutputFile {
 		plugins.registerPlugin(plugin.NewFileOutput, path, &settings.OutputFileConfig)

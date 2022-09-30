@@ -58,7 +58,7 @@ type AppSettings struct {
 	ExitAfter time.Duration `json:"exit-after"`
 
 	// --- input ---
-	InputRAW       []string `json:"input_raw"`
+	InputRAW       []string `json:"input-raw"`
 	InputRAWConfig plugin.RAWInputConfig
 
 	InputFile          []string `json:"input-file"`
