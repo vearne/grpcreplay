@@ -32,7 +32,7 @@ func (p *Processor) ProcessTCPPkg() {
 		}
 
 		for len(payload) >= HeaderSize {
-			fh, err = processFrameBase(payload)
+			fh, err = ProcessFrameBase(payload)
 			if err != nil {
 				slog.Error("ProcessTCPPkg error:%v", err)
 				continue
@@ -76,6 +76,8 @@ func (p *Processor) ProcessFrame(f *FHeader) {
 	case FrameTypeGoAway:
 		// close connection
 		p.processFrameGoAway(f)
+	case FrameTypeSetting:
+		p.processFrameSetting(f)
 	default:
 		// ignore the frame
 		slog.Debug("ignore Frame:%v", GetFrameType(f.Type))
@@ -83,10 +85,18 @@ func (p *Processor) ProcessFrame(f *FHeader) {
 }
 
 func (p *Processor) processFrameData(f *FHeader) {
-
 }
 
 func (p *Processor) processFrameHeader(f *FHeader) {
+	var fh FrameHeader
+	fh.EndStream = f.Flags&0x1 != 0
+	fh.EndHeader = f.Flags&0x4 != 0
+	fh.Padded = f.Flags&0x8 != 0
+	fh.Priority = f.Flags&0x20 != 0
+
+}
+
+func (p *Processor) processFrameSetting(f *FHeader) {
 
 }
 

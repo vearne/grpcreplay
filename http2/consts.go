@@ -5,6 +5,7 @@ const (
 	LengthSize            = 3
 	ConnectionPrefaceSize = 24
 	StreamArraySize       = 1000
+	SettingFormatItemSize = 48
 )
 
 const (

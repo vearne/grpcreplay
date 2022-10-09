@@ -23,6 +23,15 @@ const (
 	FrameTypeContinuation = 0x9
 )
 
+const (
+	SETTINGS_HEADER_TABLE_SIZE      = 0x1
+	SETTINGS_ENABLE_PUSH            = 0x2
+	SETTINGS_MAX_CONCURRENT_STREAMS = 0x3
+	SETTINGS_INITIAL_WINDOW_SIZE    = 0x4
+	SETTINGS_MAX_FRAME_SIZE         = 0x5
+	SETTINGS_MAX_HEADER_LIST_SIZE   = 0x6
+)
+
 var FrameTypeStr map[uint8]string
 
 func init() {
@@ -71,7 +80,7 @@ type FHeader struct {
 	Payload  []byte
 }
 
-func processFrameBase(b []byte) (*FHeader, error) {
+func ProcessFrameBase(b []byte) (*FHeader, error) {
 	reader := bytes.NewReader(b)
 	var fh FHeader
 	var tmp uint8
@@ -103,12 +112,87 @@ func processFrameBase(b []byte) (*FHeader, error) {
 	return &fh, nil
 }
 
+func ProcessFrameSetting(f *FHeader) (*FrameSetting, error) {
+	var fs FrameSetting
+	var err error
+	var identifier uint16
+	var value uint32
+	fs.Ack = f.Flags&0x1 != 0
+	reader := bytes.NewReader(f.Payload)
+	reader.Size()
+	for reader.Len() > 0 {
+		err = binary.Read(reader, binary.BigEndian, &identifier)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Read(reader, binary.BigEndian, &value)
+		if err != nil {
+			return nil, err
+		}
+		switch identifier {
+		case SETTINGS_HEADER_TABLE_SIZE:
+			fs.HeaderTableSize = value
+		case SETTINGS_ENABLE_PUSH:
+			fs.EnablePush = value != 0
+		case SETTINGS_MAX_CONCURRENT_STREAMS:
+			fs.MaxConcurrentStreams = value
+		case SETTINGS_INITIAL_WINDOW_SIZE:
+			fs.InitialWindowSize = value
+		case SETTINGS_MAX_FRAME_SIZE:
+			fs.MaxFrameSize = value
+		case SETTINGS_MAX_HEADER_LIST_SIZE:
+			fs.MaxHeaderListSize = value
+		}
+	}
+	return &fs, nil
+}
+
+func ProcessFrameData(f *FHeader) (*FrameData, error) {
+	var fh FrameData
+	var err error
+	fh.EndStream = f.Flags&0x1 != 0
+	fh.Padded = f.Flags&0x8 != 0
+
+	reader := bytes.NewReader(f.Payload)
+	err = binary.Read(reader, binary.BigEndian, &fh.PadLength)
+	if err != nil {
+		return nil, err
+	}
+	fh.Data = f.Payload[1 : len(fh.Data)-int(fh.PadLength)]
+	return &fh, nil
+}
+
+type FrameSetting struct {
+	fh  FHeader
+	Ack bool
+	// Frame Payload
+	HeaderTableSize      uint32
+	EnablePush           bool
+	MaxConcurrentStreams uint32
+	InitialWindowSize    uint32
+	MaxFrameSize         uint32
+	MaxHeaderListSize    uint32
+}
+
 type FrameData struct {
-	fh FHeader
+	fh        FHeader
+	EndStream bool
+	Padded    bool
+	// Frame Payload
+	PadLength uint8
+	Data      []byte
 }
 
 type FrameHeader struct {
-	fh FHeader
+	fh        FHeader
+	EndStream bool
+	EndHeader bool
+	Padded    bool
+	// I don't care
+	Priority bool
+	// Frame Payload
+	PadLength           uint8
+	HeaderBlockFragment []byte
 }
 
 type FrameContinuation struct {
