@@ -83,7 +83,6 @@ github.com/google/gopacket/layers
 github.com/google/gopacket/pcap
 # github.com/google/uuid v1.3.0
 ## explicit
-github.com/google/uuid
 # github.com/hashicorp/errwrap v1.0.0
 ## explicit
 github.com/hashicorp/errwrap
@@ -205,8 +204,8 @@ github.com/shirou/gopsutil/v3/net
 # github.com/stretchr/testify v1.8.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/vearne/simplelog v0.0.0-20200527094239-692fca69e8b1
-## explicit
+# github.com/vearne/simplelog v0.0.1
+## explicit; go 1.18
 github.com/vearne/simplelog
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16

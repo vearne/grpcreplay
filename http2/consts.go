@@ -1,0 +1,31 @@
+package http2
+
+const (
+	HeaderSize            = 9
+	LengthSize            = 3
+	ConnectionPrefaceSize = 24
+	StreamArraySize       = 1000
+)
+
+const (
+	DirUnknown = iota
+	DirIncoming
+	DirOutcoming
+)
+
+var DirStr map[Dir]string
+
+func init() {
+	DirStr = make(map[Dir]string)
+	DirStr[DirUnknown] = "DirUnknown"
+	DirStr[DirIncoming] = "DirIncoming"
+	DirStr[DirOutcoming] = "DirOutcoming"
+}
+
+func GetDirection(d Dir) string {
+	name, ok := DirStr[d]
+	if ok {
+		return name
+	}
+	return "UNKNOW"
+}

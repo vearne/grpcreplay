@@ -11,7 +11,7 @@ require (
 	github.com/jhump/protoreflect v1.12.0
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/stretchr/testify v1.8.0
-	github.com/vearne/simplelog v0.0.0-20200527094239-692fca69e8b1
+	github.com/vearne/simplelog v0.0.1
 	golang.org/x/net v0.0.0-20220809184613-07c6da5e1ced
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	google.golang.org/grpc v1.48.0

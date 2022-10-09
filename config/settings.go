@@ -58,17 +58,16 @@ type AppSettings struct {
 	ExitAfter time.Duration `json:"exit-after"`
 
 	// --- input ---
-	InputRAW       []string `json:"input-raw"`
-	InputRAWConfig plugin.RAWInputConfig
+	InputRAW []string `json:"input-raw"`
 
 	InputFile          []string `json:"input-file"`
 	InputFileLoop      bool     `json:"input-file-loop"`
 	InputFileReadDepth int      `json:"input-file-read-depth"`
 	// --- output ---
-	OutputStdout     bool     `json:"output-stdout"`
-	OutputGRPC       []string `json:"output-grpc"`
-	OutputFile       []string `json:"output-file"`
-	OutputFileConfig plugin.FileOutputConfig
+	OutputStdout bool     `json:"output-stdout"`
+	OutputGRPC   []string `json:"output-grpc"`
+	OutputFile   []string `json:"output-file"`
+	//OutputFileConfig plugin.FileOutputConfig
 
 	OutputKafkaConfig plugin.OutputKafkaConfig
 }

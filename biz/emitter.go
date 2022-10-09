@@ -3,6 +3,8 @@ package biz
 import (
 	//"fmt"
 	slog "github.com/vearne/simplelog"
+	"time"
+
 	//"hash/fnv"
 	"io"
 	//"log"
@@ -54,7 +56,8 @@ func (e *Emitter) Close() {
 func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		slog.Debug("for-PluginRead")
-		src.Read()
+		//src.Read()
+		time.Sleep(1 * time.Minute)
 	}
 	return nil
 	//wIndex := 0

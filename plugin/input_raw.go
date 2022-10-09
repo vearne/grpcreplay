@@ -5,12 +5,11 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 	psnet "github.com/shirou/gopsutil/v3/net"
-	"github.com/vearne/grpcreplay/consts"
 	"github.com/vearne/grpcreplay/http2"
-	"github.com/vearne/grpcreplay/model"
 	"github.com/vearne/grpcreplay/protocol"
 	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -25,18 +24,22 @@ const (
 
 type DeviceListener struct {
 	device string
-	port   string
+	port   int
 	//outputChan chan gopacket.Packet
 	rawInput *RAWInput
 	handle   *pcap.Handle
 }
 
-func NewDeviceListener(device, port string, rawInput *RAWInput) *DeviceListener {
+func NewDeviceListener(device string, port int, rawInput *RAWInput) *DeviceListener {
 	var l DeviceListener
 	l.device = device
 	l.port = port
 	l.rawInput = rawInput
 	return &l
+}
+
+func (l *DeviceListener) String() string {
+	return fmt.Sprintf("device:%v, port:%v", l.device, l.port)
 }
 
 func (l *DeviceListener) listen() error {
@@ -47,26 +50,32 @@ func (l *DeviceListener) listen() error {
 	}
 
 	var filter string = fmt.Sprintf("tcp and port %v", l.port)
+	slog.Debug("listener:%v, filter:%v", l, filter)
 	err = l.handle.SetBPFFilter(filter)
 	if err != nil {
 		return err
 	}
 	packetSource := gopacket.NewPacketSource(l.handle, l.handle.LinkType())
 	for packet := range packetSource.Packets() {
-		netPkg, err := model.ProcessPacket(packet, l.rawInput.ipSet)
+		netPkg, err := http2.ProcessPacket(packet, l.rawInput.ipSet, l.port)
 		if err != nil {
 			slog.Error("netPkg error:%v", err)
 			continue
 		}
-		if netPkg.Direction == consts.DirIncoming {
+		conn := netPkg.DirectConn()
+		slog.Debug("DeviceListener.listen-connection:%v, Direction:%v",
+			&conn, http2.GetDirection(netPkg.Direction))
+		if netPkg.Direction == http2.DirIncoming {
 			//l.rawInput.outputChan <- packet
 			conn := netPkg.DirectConn()
 			if l.rawInput.connSet.Has(conn) { // history connection
 				if netPkg.TCP.ACK {
-					// trigger challenge ack
-					sendFakePkg(netPkg.TCP.Ack, conn.SrcAddr.IP, uint16(conn.SrcAddr.Port),
-						conn.DstAddr.IP, uint16(conn.DstAddr.Port), RST)
+					slog.Debug("send RST, for connection:%v", &conn)
+					// 伪造一个从local -> remote的packet
+					sendFakePkg(netPkg.TCP.Ack, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
+						conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), RST)
 				} else if netPkg.TCP.SYN { // // new connection
+					slog.Debug("got SYN, remove %v from connSet", &conn)
 					l.rawInput.connSet.Remove(conn)
 				}
 			} else { // new connection
@@ -83,11 +92,12 @@ func (l *DeviceListener) Close() {
 
 // RAWInput used for intercepting traffic for given address
 type RAWInput struct {
-	connSet      *util.ConnSet
+	connSet      *http2.ConnSet
 	ipSet        *util.StringSet
 	port         int
-	outputChan   chan *model.NetPkg
+	outputChan   chan *http2.NetPkg
 	listenerList []*DeviceListener
+	Processor    *http2.Processor
 }
 
 // NewRAWInput constructor for RAWInput. Accepts raw input config as arguments.
@@ -100,9 +110,11 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	}
 
 	var i RAWInput
-	i.connSet = util.NewConnSet()
+	i.connSet = http2.NewConnSet()
 	i.port, err = strconv.Atoi(port)
 	i.ipSet = util.NewStringSet()
+	i.outputChan = make(chan *http2.NetPkg, 100)
+	i.Processor = http2.NewProcessor(i.outputChan)
 
 	var deviceList []string
 	itfStatList, err := psnet.Interfaces()
@@ -113,11 +125,13 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	// 保存本地所有IP地址，以便后期判断包的来源
 	for _, itf := range itfStatList {
 		for _, addr := range itf.Addrs {
-			addrStr := addr.String()
-			idx := strings.LastIndex(addrStr, "/")
-			i.ipSet.Add(addrStr[0:idx])
+			idx := strings.LastIndex(addr.Addr, "/")
+			//slog.Debug("addr: %v", addr.Addr[0:idx])
+			i.ipSet.Add(addr.Addr[0:idx])
 		}
 	}
+
+	slog.Info("ipSet:%v", i.ipSet.ToArray())
 
 	host = strings.TrimSpace(host)
 	if len(host) <= 0 || host == "0.0.0.0" { // all devices
@@ -137,40 +151,48 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	if err != nil {
 		return nil, err
 	}
-	i.outputChan = make(chan *model.NetPkg, 100)
+
 	i.listenerList = make([]*DeviceListener, 0)
 	for _, device := range deviceList {
-		i.listenerList = append(i.listenerList, NewDeviceListener(device, port, &i))
+		i.listenerList = append(i.listenerList, NewDeviceListener(device, i.port, &i))
 	}
 
 	go i.Listen()
+	go i.Processor.ProcessTCPPkg()
 	return &i, nil
 }
 
 func (i *RAWInput) Listen() {
+	slog.Debug("RAWInput.Listen()")
 	cons, err := listAllConns(i.port)
 	if err != nil {
 		slog.Fatal("listAllConns:%v", err)
 	}
 	i.connSet.AddAll(cons)
+	slog.Debug("history connections:%v", i.connSet)
 	// 在每个网卡启动listener
+	slog.Debug("len(i.listenerList):%v", len(i.listenerList))
 	for _, listener := range i.listenerList {
 		go func() {
+			slog.Info("listener:%v", listener)
 			listenErr := listener.listen()
-			slog.Fatal("listener.listen:%v", listenErr)
+			if listenErr != nil {
+				slog.Fatal("listener.listen:%v", listenErr)
+			}
 		}()
 	}
 
+	slog.Debug("-------2-------")
 	// 直到所有的旧有连接都退出
 	for i.connSet.Size() > 0 {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 		cons, err := listAllConns(i.port)
 		if err != nil {
 			slog.Fatal("listAllConns:%v", err)
 		}
 
 		// A∩B
-		B := util.NewConnSet()
+		B := http2.NewConnSet()
 		B.AddAll(cons)
 
 		A := i.connSet.Clone()
@@ -178,9 +200,13 @@ func (i *RAWInput) Listen() {
 		i.connSet.RemoveAll(A)
 		for _, conn := range i.connSet.ToArray() {
 			// trigger challenge ack
-			sendFakePkg(10, conn.SrcAddr.IP, uint16(conn.SrcAddr.Port),
-				conn.DstAddr.IP, uint16(conn.DstAddr.Port), SYN)
+			// remote -> local
+			// src -> dst
+			// 伪造一个从local -> remote的packet
+			sendFakePkg(uint32(rand.Intn(100)), conn.DstAddr.IP, uint16(conn.DstAddr.Port),
+				conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), SYN)
 		}
+		slog.Debug("history connections:%v", i.connSet)
 	}
 	slog.Info("All history connections has exited.")
 }
@@ -194,7 +220,7 @@ func (i *RAWInput) Read() (*protocol.Message, error) {
 		if len(payload) <= http2.HeaderSize {
 			continue
 		}
-		
+		//p
 	}
 
 	return nil, nil
@@ -208,15 +234,15 @@ func (i *RAWInput) Close() error {
 	return nil
 }
 
-func listAllConns(port int) ([]model.DirectConn, error) {
+func listAllConns(port int) ([]http2.DirectConn, error) {
 	itemList, err := psnet.Connections("tcp4")
 	if err != nil {
 		return nil, err
 	}
-	conns := make([]model.DirectConn, 0)
+	conns := make([]http2.DirectConn, 0)
 	for _, item := range itemList {
 		if item.Laddr.Port == uint32(port) && item.Status == "ESTABLISHED" {
-			var c model.DirectConn
+			var c http2.DirectConn
 			c.DstAddr = item.Laddr
 			c.SrcAddr = item.Raddr
 			conns = append(conns, c)

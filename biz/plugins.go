@@ -21,7 +21,7 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 
 	for _, item := range settings.InputRAW {
 		slog.Debug("options: %q", item)
-		plugins.registerPlugin(plugin.NewRAWInput, item, settings.InputRAWConfig)
+		plugins.registerPlugin(plugin.NewRAWInput, item)
 	}
 
 	//for _, options := range settings.InputFile {
@@ -32,9 +32,9 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 	//	plugins.registerPlugin(plugin.NewDummyOutput)
 	//}
 
-	for _, path := range settings.OutputFile {
-		plugins.registerPlugin(plugin.NewFileOutput, path, &settings.OutputFileConfig)
-	}
+	//for _, path := range settings.OutputFile {
+	//	plugins.registerPlugin(plugin.NewFileOutput, path, &settings.OutputFileConfig)
+	//}
 
 	//for _, options := range settings.OutputGRPC {
 	//	plugins.registerPlugin(NewHTTPOutput, options, &settings.OutputHTTPConfig)

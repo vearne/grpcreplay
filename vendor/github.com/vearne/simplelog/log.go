@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	Level  = DebugLevel
+	Level  = WarnLevel
 	LogMap map[string]int
 )
 
@@ -26,6 +26,11 @@ func init() {
 	LogMap["warn"] = WarnLevel
 	LogMap["error"] = ErrorLevel
 
+	// use environment variables to set log level
+	logLevel := os.Getenv("SIMPLE_LOG_LEVEL")
+	if _, ok := LogMap[logLevel]; ok {
+		SetLevel(LogMap[logLevel])
+	}
 }
 
 func SetLevel(loglevel int) {
@@ -66,4 +71,3 @@ func Fatal(format string, v ...interface{}) {
 	}
 	os.Exit(1)
 }
-

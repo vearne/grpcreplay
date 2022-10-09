@@ -3,7 +3,7 @@ package plugin
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	slog "github.com/vearne/simplelog"
 	"net"
 	"strconv"
 	"strings"
@@ -67,21 +67,20 @@ func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 		err    error
 	)
 	if sockfd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP); err != nil {
-		fmt.Println("Socket() error: ", err.Error())
+		slog.Error("Socket() error: %v", err)
 		return
 	}
 	defer syscall.Shutdown(sockfd, syscall.SHUT_RDWR)
 	addr.Addr = IPtoByte(dstAddr)
 	addr.Port = int(dstPort)
 
-	fmt.Println("seq:", seq)
-	fmt.Printf("send %v from %v:%v\n", flagStr(flag), srcAddr, srcPort)
-	fmt.Printf("send %v to %v:%v\n", flagStr(flag), dstAddr, dstPort)
+	slog.Debug("send %v , %v:%v -> %v:%v", flagStr(flag),
+		srcAddr, srcPort, dstAddr, dstPort)
 	if err = syscall.Sendto(sockfd, buffer.Bytes(), 0, &addr); err != nil {
-		fmt.Println("Sendto() error: ", err.Error())
+		slog.Error("Sendto() error: %v", err)
 		return
 	}
-	fmt.Println("Send success!")
+	slog.Debug("Send success!")
 }
 
 type TCPHeader struct {

@@ -9,6 +9,13 @@ Because I need to be able to control the level of logging.
 go get github.com/vearne/simplelog
 ```
 
+### Use environment variables to set log level
+optional value: debug | info | warn | error
+```
+export SIMPLE_LOG_LEVEL=info
+```
+
+
 ### Usage
 
 ```

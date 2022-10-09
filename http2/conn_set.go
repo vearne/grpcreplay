@@ -1,27 +1,27 @@
-package util
+package http2
 
 import (
-	"github.com/vearne/grpcreplay/model"
+	"strings"
 	"sync"
 )
 
 type ConnSet struct {
 	rw       sync.RWMutex
-	internal map[model.DirectConn]int
+	internal map[DirectConn]int
 }
 
 func NewConnSet() *ConnSet {
-	return &ConnSet{internal: make(map[model.DirectConn]int)}
+	return &ConnSet{internal: make(map[DirectConn]int)}
 }
 
-func (set *ConnSet) Add(c model.DirectConn) {
+func (set *ConnSet) Add(c DirectConn) {
 	set.rw.Lock()
 	defer set.rw.Unlock()
 
 	set.internal[c] = 1
 }
 
-func (set *ConnSet) AddAll(cons []model.DirectConn) {
+func (set *ConnSet) AddAll(cons []DirectConn) {
 	set.rw.Lock()
 	defer set.rw.Unlock()
 
@@ -30,7 +30,7 @@ func (set *ConnSet) AddAll(cons []model.DirectConn) {
 	}
 }
 
-func (set *ConnSet) Has(c model.DirectConn) bool {
+func (set *ConnSet) Has(c DirectConn) bool {
 	set.rw.RLock()
 	defer set.rw.RUnlock()
 
@@ -38,7 +38,7 @@ func (set *ConnSet) Has(c model.DirectConn) bool {
 	return ok
 }
 
-func (set *ConnSet) Remove(c model.DirectConn) {
+func (set *ConnSet) Remove(c DirectConn) {
 	set.rw.Lock()
 	defer set.rw.Unlock()
 
@@ -54,11 +54,11 @@ func (set *ConnSet) RemoveAll(other *ConnSet) {
 	}
 }
 
-func (set *ConnSet) ToArray() []model.DirectConn {
-	set.rw.Lock()
-	defer set.rw.Unlock()
+func (set *ConnSet) ToArray() []DirectConn {
+	set.rw.RLock()
+	defer set.rw.RUnlock()
 
-	res := make([]model.DirectConn, len(set.internal))
+	res := make([]DirectConn, len(set.internal))
 	i := 0
 	for key := range set.internal {
 		res[i] = key
@@ -89,6 +89,17 @@ func (set *ConnSet) Intersection(set2 *ConnSet) *ConnSet {
 		}
 	}
 	return result
+}
+
+func (set *ConnSet) String() string {
+	set.rw.RLock()
+	defer set.rw.RUnlock()
+
+	strList := make([]string, 0)
+	for _, conn := range set.ToArray() {
+		strList = append(strList, conn.String())
+	}
+	return strings.Join(strList, ",")
 }
 
 func (set *ConnSet) Clone() *ConnSet {
