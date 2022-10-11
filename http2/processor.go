@@ -6,14 +6,14 @@ import (
 )
 
 type Processor struct {
-	ProcessBuff map[DirectConn]*Http2Conn
-	InputChan   chan *NetPkg
-	OutputChan  chan *protocol.Message
+	ConnRepository map[DirectConn]*Http2Conn
+	InputChan      chan *NetPkg
+	OutputChan     chan *protocol.Message
 }
 
 func NewProcessor(input chan *NetPkg) *Processor {
 	var p Processor
-	p.ProcessBuff = make(map[DirectConn]*Http2Conn, 100)
+	p.ConnRepository = make(map[DirectConn]*Http2Conn, 100)
 	p.InputChan = input
 	p.OutputChan = make(chan *protocol.Message, 100)
 	slog.Info("create new Processer")
@@ -21,7 +21,7 @@ func NewProcessor(input chan *NetPkg) *Processor {
 }
 
 func (p *Processor) ProcessTCPPkg() {
-	var fh *FHeader
+	var f *FrameBase
 	var err error
 	for pkg := range p.InputChan {
 		payload := pkg.TCP.Payload
@@ -32,21 +32,28 @@ func (p *Processor) ProcessTCPPkg() {
 		}
 
 		for len(payload) >= HeaderSize {
-			fh, err = ProcessFrameBase(payload)
+			f, err = ParseFrameBase(payload)
 			if err != nil {
 				slog.Error("ProcessTCPPkg error:%v", err)
 				continue
 			}
-			slog.Debug("FrameType:%v, length:%v, streamID:%v", GetFrameType(fh.Type),
-				fh.Length, fh.StreamID)
+
+			dc := pkg.DirectConn()
+			f.DirectConn = &dc
+			slog.Debug("Connection:%v, seq:%v, FrameType:%v, length:%v, streamID:%v",
+				f.DirectConn, pkg.TCP.Seq, GetFrameType(f.Type), f.Length, f.StreamID)
+
+			var ok bool
+			if _, ok = p.ConnRepository[dc]; !ok {
+				p.ConnRepository[dc] = NewHttp2Conn(dc, http2initialHeaderTableSize)
+			}
 
 			// Separate processing according to frame type
-			p.ProcessFrame(fh)
+			p.ProcessFrame(f)
 
-			if len(payload) >= int(HeaderSize+fh.Length) {
-				payload = payload[HeaderSize+fh.Length:]
+			if len(payload) >= int(HeaderSize+f.Length) {
+				payload = payload[HeaderSize+f.Length:]
 			} else {
-				dc := pkg.DirectConn()
 				slog.Error("get TCP pkg:%v, seq:%v, tcp flags:%v",
 					&dc, pkg.TCP.Seq, pkg.TCPFlags())
 				payload = []byte{}
@@ -60,7 +67,7 @@ func IsConnPreface(payload []byte) bool {
 		(string(payload) == PrefaceEarly || string(payload) == PrefaceSTD)
 }
 
-func (p *Processor) ProcessFrame(f *FHeader) {
+func (p *Processor) ProcessFrame(f *FrameBase) {
 	switch f.Type {
 	case FrameTypeData:
 		// parse data
@@ -84,30 +91,92 @@ func (p *Processor) ProcessFrame(f *FHeader) {
 	}
 }
 
-func (p *Processor) processFrameData(f *FHeader) {
+func (p *Processor) processFrameData(f *FrameBase) {
 }
 
-func (p *Processor) processFrameHeader(f *FHeader) {
-	var fh FrameHeader
-	fh.EndStream = f.Flags&0x1 != 0
-	fh.EndHeader = f.Flags&0x4 != 0
-	fh.Padded = f.Flags&0x8 != 0
-	fh.Priority = f.Flags&0x20 != 0
+func (p *Processor) processFrameHeader(f *FrameBase) {
+	fh, err := ParseFrameHeader(f)
+	if err != nil {
+		slog.Error("ProcessFrameHeader:%v", err)
+		return
+	}
+
+	hc := p.ConnRepository[*f.DirectConn]
+	// 设置stream的状态
+	index := fh.fb.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+	stream.EndStream = fh.EndStream
+	stream.EndHeader = fh.EndHeader
+	slog.Info("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
+		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream, hc.MaxDynamicTableSize)
+
+	hdec := hc.HeaderDecoder
+	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	fields, err := hdec.DecodeFull(fh.HeaderBlockFragment)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	for _, field := range fields {
+		stream.Headers[field.Name] = field.Value
+		slog.Debug(field.String())
+	}
+}
+
+func (p *Processor) processFrameSetting(f *FrameBase) {
+	fs, err := ParseFrameSetting(f)
+	if err != nil {
+		slog.Error("ParseFrameSetting:%v", err)
+		return
+	}
+	if fs.Ack {
+		return
+	}
+
+	hc := p.ConnRepository[*f.DirectConn]
+	for _, item := range fs.settings {
+		if item.ID == http2SettingHeaderTableSize {
+			slog.Warn("adjust http2SettingHeaderTableSize:%v", item.Val)
+			hc.MaxDynamicTableSize = item.Val
+			hc.HeaderDecoder.SetMaxDynamicTableSize(item.Val)
+		}
+	}
+}
+
+func (p *Processor) processFrameContinuation(f *FrameBase) {
+	fc, err := ParseFrameContinuation(f)
+	if err != nil {
+		slog.Error("ParseFrameContinuation:%v", err)
+		return
+	}
+
+	hc := p.ConnRepository[*f.DirectConn]
+	// 设置stream的状态
+	index := fc.fb.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+	stream.EndHeader = fc.EndHeader
+	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
+		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream)
+
+	hdec := hc.HeaderDecoder
+	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	fields, err := hdec.DecodeFull(fc.HeaderBlockFragment)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	for _, field := range fields {
+		stream.Headers[field.Name] = field.Value
+		slog.Debug(field.String())
+	}
+}
+
+func (p *Processor) processFrameGoAway(f *FrameBase) {
 
 }
 
-func (p *Processor) processFrameSetting(f *FHeader) {
-
-}
-
-func (p *Processor) processFrameContinuation(f *FHeader) {
-
-}
-
-func (p *Processor) processFrameGoAway(f *FHeader) {
-
-}
-
-func (p *Processor) processFrameRSTStream(f *FHeader) {
+func (p *Processor) processFrameRSTStream(f *FrameBase) {
 
 }

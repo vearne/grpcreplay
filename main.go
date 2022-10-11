@@ -42,15 +42,10 @@ func init() {
 }
 
 func main() {
-	// set log level
-	slog.SetLevel(slog.DebugLevel)
-
 	flag.Parse()
+
 	printSettings(&settings)
-
 	emitter := biz.NewEmitter()
-	slog.Debug("--1--")
-
 	plugins := biz.NewPlugins(&settings)
 	slog.Debug("plugins:%v", plugins)
 

@@ -50,7 +50,7 @@ func (l *DeviceListener) listen() error {
 	}
 
 	var filter string = fmt.Sprintf("tcp and port %v", l.port)
-	slog.Debug("listener:%v, filter:%v", l, filter)
+	slog.Info("listener:%v, filter:%v", l, filter)
 	err = l.handle.SetBPFFilter(filter)
 	if err != nil {
 		return err
@@ -153,8 +153,8 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	}
 
 	i.listenerList = make([]*DeviceListener, 0)
-	for _, device := range deviceList {
-		i.listenerList = append(i.listenerList, NewDeviceListener(device, i.port, &i))
+	for j := 0; j < len(deviceList); j++ {
+		i.listenerList = append(i.listenerList, NewDeviceListener(deviceList[j], i.port, &i))
 	}
 
 	go i.Listen()
@@ -172,17 +172,16 @@ func (i *RAWInput) Listen() {
 	slog.Debug("history connections:%v", i.connSet)
 	// 在每个网卡启动listener
 	slog.Debug("len(i.listenerList):%v", len(i.listenerList))
+
 	for _, listener := range i.listenerList {
-		go func() {
-			slog.Info("listener:%v", listener)
+		go func(listener *DeviceListener) {
 			listenErr := listener.listen()
 			if listenErr != nil {
 				slog.Fatal("listener.listen:%v", listenErr)
 			}
-		}()
+		}(listener)
 	}
 
-	slog.Debug("-------2-------")
 	// 直到所有的旧有连接都退出
 	for i.connSet.Size() > 0 {
 		time.Sleep(3 * time.Second)

@@ -11,6 +11,12 @@ sudo -s
 ```
 ./grpcreplay --input-raw="0.0.0.0:8080" --output-stdout
 ```
+```
+go run main.go --input-raw="0.0.0.0:8080" --output-stdout
+```
+```
+go run main.go --input-raw="127.0.0.1:8080" --output-stdout
+```
 
 ## 调试
 设置日志级别

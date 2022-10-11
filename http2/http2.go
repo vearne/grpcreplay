@@ -3,6 +3,14 @@ package http2
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	slog "github.com/vearne/simplelog"
+	"golang.org/x/net/http2/hpack"
+)
+
+const (
+	// http://http2.github.io/http2-spec/#SettingValues
+	http2initialHeaderTableSize = 4096
 )
 
 const (
@@ -21,15 +29,6 @@ const (
 	FrameTypeGoAway       = 0x7
 	FrameTypeWindowUpdate = 0x8
 	FrameTypeContinuation = 0x9
-)
-
-const (
-	SETTINGS_HEADER_TABLE_SIZE      = 0x1
-	SETTINGS_ENABLE_PUSH            = 0x2
-	SETTINGS_MAX_CONCURRENT_STREAMS = 0x3
-	SETTINGS_INITIAL_WINDOW_SIZE    = 0x4
-	SETTINGS_MAX_FRAME_SIZE         = 0x5
-	SETTINGS_MAX_HEADER_LIST_SIZE   = 0x6
 )
 
 var FrameTypeStr map[uint8]string
@@ -56,33 +55,109 @@ func GetFrameType(t uint8) string {
 	return "UNKNOW"
 }
 
+// A SettingID is an HTTP/2 setting as defined in
+// http://http2.github.io/http2-spec/#iana-settings
+type http2SettingID uint16
+
+const (
+	http2SettingHeaderTableSize      http2SettingID = 0x1
+	http2SettingEnablePush           http2SettingID = 0x2
+	http2SettingMaxConcurrentStreams http2SettingID = 0x3
+	http2SettingInitialWindowSize    http2SettingID = 0x4
+	http2SettingMaxFrameSize         http2SettingID = 0x5
+	http2SettingMaxHeaderListSize    http2SettingID = 0x6
+)
+
+var http2settingName = map[http2SettingID]string{
+	http2SettingHeaderTableSize:      "HEADER_TABLE_SIZE",
+	http2SettingEnablePush:           "ENABLE_PUSH",
+	http2SettingMaxConcurrentStreams: "MAX_CONCURRENT_STREAMS",
+	http2SettingInitialWindowSize:    "INITIAL_WINDOW_SIZE",
+	http2SettingMaxFrameSize:         "MAX_FRAME_SIZE",
+	http2SettingMaxHeaderListSize:    "MAX_HEADER_LIST_SIZE",
+}
+
+func (s http2SettingID) String() string {
+	if v, ok := http2settingName[s]; ok {
+		return v
+	}
+	return fmt.Sprintf("UNKNOWN_SETTING_%d", uint16(s))
+}
+
+// Setting is a setting parameter: which setting it is, and its value.
+type http2Setting struct {
+	// ID is which setting is being set.
+	// See http://http2.github.io/http2-spec/#SettingValues
+	ID http2SettingID
+
+	// Val is the value.
+	Val uint32
+}
+
+func (s http2Setting) String() string {
+	return fmt.Sprintf("[%v = %d]", s.ID, s.Val)
+}
+
+// http2 connection context
 type Http2Conn struct {
-	// 静态表
-	// 动态表
-	Streams [StreamArraySize]*Stream
+	DirectConn          DirectConn
+	MaxDynamicTableSize uint32
+	MaxHeaderStringLen  uint32
+	HeaderDecoder       *hpack.Decoder
+	Streams             [StreamArraySize]*Stream
+}
+
+func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32) *Http2Conn {
+	var hc Http2Conn
+	hc.DirectConn = conn
+	hc.MaxDynamicTableSize = maxDynamicTableSize
+
+	slog.Info("create Http2Conn, MaxDynamicTableSize:%v", maxDynamicTableSize)
+	hc.HeaderDecoder = hpack.NewDecoder(maxDynamicTableSize, nil)
+	for i := 0; i < StreamArraySize; i++ {
+		hc.Streams[i] = NewStream()
+	}
+	return &hc
 }
 
 type Stream struct {
 	StreamID  uint32
 	EndHeader bool
 	EndStream bool
-	Headers   map[string][]string `json:"headers"`
-	Method    string              `json:"method"`
-	Request   string              `json:"request"`
+	Headers   map[string]string `json:"headers"`
+	Method    string            `json:"method"`
+	// json序列化后的结果
+	Request []byte `json:"request"`
+}
+
+func NewStream() *Stream {
+	var s Stream
+	s.Headers = make(map[string]string)
+	s.EndStream = false
+	s.EndHeader = false
+	return &s
+}
+
+func (s *Stream) Reset() {
+	s.StreamID = 0
+	s.EndStream = false
+	s.EndHeader = false
+	s.Headers = make(map[string]string)
 }
 
 // 帧头部
-type FHeader struct {
-	StreamID uint32
-	Type     uint8
-	Flags    uint8
-	Length   uint32
-	Payload  []byte
+type FrameBase struct {
+	DirectConn *DirectConn
+	StreamID   uint32
+	Type       uint8
+	Flags      uint8
+	Length     uint32
+	Payload    []byte
 }
 
-func ProcessFrameBase(b []byte) (*FHeader, error) {
+func ParseFrameBase(b []byte) (*FrameBase, error) {
 	reader := bytes.NewReader(b)
-	var fh FHeader
+	var fb FrameBase
 	var tmp uint8
 	var err error
 	// Length(24)
@@ -91,35 +166,40 @@ func ProcessFrameBase(b []byte) (*FHeader, error) {
 		if err != nil {
 			return nil, err
 		}
-		fh.Length = fh.Length*256 + uint32(tmp)
+		fb.Length = fb.Length*256 + uint32(tmp)
 	}
 	// Type(8)
-	err = binary.Read(reader, binary.BigEndian, &fh.Type)
+	err = binary.Read(reader, binary.BigEndian, &fb.Type)
 	if err != nil {
 		return nil, err
 	}
 	// Flags(8)
-	err = binary.Read(reader, binary.BigEndian, &fh.Flags)
+	err = binary.Read(reader, binary.BigEndian, &fb.Flags)
 	if err != nil {
 		return nil, err
 	}
 	// Stream Identifier(31)
-	err = binary.Read(reader, binary.BigEndian, &fh.StreamID)
+	err = binary.Read(reader, binary.BigEndian, &fb.StreamID)
 	if err != nil {
 		return nil, err
 	}
-	fh.Payload = b[HeaderSize : HeaderSize+fh.Length]
-	return &fh, nil
+	fb.Payload = b[HeaderSize : HeaderSize+fb.Length]
+	return &fb, nil
 }
 
-func ProcessFrameSetting(f *FHeader) (*FrameSetting, error) {
+func ParseFrameSetting(f *FrameBase) (*FrameSetting, error) {
 	var fs FrameSetting
+	fs.settings = make([]http2Setting, 0)
+
 	var err error
 	var identifier uint16
 	var value uint32
+	// basic info
+	fs.fb = f
+
 	fs.Ack = f.Flags&0x1 != 0
 	reader := bytes.NewReader(f.Payload)
-	reader.Size()
+	// 参数都是可选
 	for reader.Len() > 0 {
 		err = binary.Read(reader, binary.BigEndian, &identifier)
 		if err != nil {
@@ -129,25 +209,52 @@ func ProcessFrameSetting(f *FHeader) (*FrameSetting, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch identifier {
-		case SETTINGS_HEADER_TABLE_SIZE:
-			fs.HeaderTableSize = value
-		case SETTINGS_ENABLE_PUSH:
-			fs.EnablePush = value != 0
-		case SETTINGS_MAX_CONCURRENT_STREAMS:
-			fs.MaxConcurrentStreams = value
-		case SETTINGS_INITIAL_WINDOW_SIZE:
-			fs.InitialWindowSize = value
-		case SETTINGS_MAX_FRAME_SIZE:
-			fs.MaxFrameSize = value
-		case SETTINGS_MAX_HEADER_LIST_SIZE:
-			fs.MaxHeaderListSize = value
+		switch http2SettingID(identifier) {
+		case http2SettingHeaderTableSize:
+			fs.settings = append(fs.settings, http2Setting{ID: http2SettingHeaderTableSize, Val: value})
+		default:
+			slog.Debug("ignore:%v", http2SettingID(identifier))
 		}
 	}
 	return &fs, nil
 }
 
-func ProcessFrameData(f *FHeader) (*FrameData, error) {
+func ParseFrameHeader(f *FrameBase) (*FrameHeader, error) {
+	var fh FrameHeader
+	// basic info
+	fh.fb = f
+
+	fh.EndStream = f.Flags&0x1 != 0
+	fh.EndHeader = f.Flags&0x4 != 0
+	fh.Padded = f.Flags&0x8 != 0
+	fh.Priority = f.Flags&0x20 != 0
+
+	// ----Frame Payload----
+	start := 0
+	// Pad Length(optional)
+	if fh.Padded {
+		start += 1
+
+		reader := bytes.NewReader(f.Payload)
+		//binary.BigEndian
+		err := binary.Read(reader, binary.BigEndian, &fh.PadLength)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// E/Stream Dependency/Weight (optional)
+	if fh.Priority {
+		start += 5
+	}
+
+	// HeaderBlockFragment
+	fh.HeaderBlockFragment = f.Payload[start : len(f.Payload)-int(fh.PadLength)]
+	slog.Debug("Padded:%v, len(f.Payload):%v, PadLength:%v, len(HeaderBlockFragment):%v",
+		fh.Padded, len(f.Payload), fh.PadLength, len(fh.HeaderBlockFragment))
+	return &fh, nil
+}
+
+func ParseFrameData(f *FrameBase) (*FrameData, error) {
 	var fh FrameData
 	var err error
 	fh.EndStream = f.Flags&0x1 != 0
@@ -162,20 +269,23 @@ func ProcessFrameData(f *FHeader) (*FrameData, error) {
 	return &fh, nil
 }
 
+func ParseFrameContinuation(f *FrameBase) (*FrameContinuation, error) {
+	var fc FrameContinuation
+	fc.EndHeader = f.Flags&0x4 != 0
+
+	fc.HeaderBlockFragment = f.Payload
+	return &fc, nil
+}
+
 type FrameSetting struct {
-	fh  FHeader
+	fb  *FrameBase
 	Ack bool
 	// Frame Payload
-	HeaderTableSize      uint32
-	EnablePush           bool
-	MaxConcurrentStreams uint32
-	InitialWindowSize    uint32
-	MaxFrameSize         uint32
-	MaxHeaderListSize    uint32
+	settings []http2Setting
 }
 
 type FrameData struct {
-	fh        FHeader
+	fb        *FrameBase
 	EndStream bool
 	Padded    bool
 	// Frame Payload
@@ -184,7 +294,7 @@ type FrameData struct {
 }
 
 type FrameHeader struct {
-	fh        FHeader
+	fb        *FrameBase
 	EndStream bool
 	EndHeader bool
 	Padded    bool
@@ -196,5 +306,7 @@ type FrameHeader struct {
 }
 
 type FrameContinuation struct {
-	fh FHeader
+	fb                  *FrameBase
+	EndHeader           bool
+	HeaderBlockFragment []byte
 }
