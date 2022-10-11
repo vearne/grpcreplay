@@ -40,7 +40,8 @@ func (p *ProtocolV1) Decode(bt []byte) (*Message, error) {
 	}
 
 	msg.Meta.UUID = strList[1]
-	msg.Meta.Timestamp, err = strconv.Atoi(strList[2])
+	tmp, err := strconv.Atoi(strList[2])
+	msg.Meta.Timestamp = int64(tmp)
 	if err != nil {
 		return nil, err
 	}

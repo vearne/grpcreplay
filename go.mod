@@ -5,7 +5,9 @@ go 1.18
 require (
 	github.com/Shopify/sarama v1.36.0
 	github.com/fullstorydev/grpcurl v1.8.7
+	github.com/golang/protobuf v1.5.2
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
+	github.com/google/uuid v1.3.0
 	github.com/jhump/protoreflect v1.12.0
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/vearne/simplelog v0.0.1
@@ -19,7 +21,6 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

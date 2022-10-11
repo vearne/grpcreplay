@@ -41,6 +41,9 @@ github.com/golang/snappy
 github.com/google/gopacket
 github.com/google/gopacket/layers
 github.com/google/gopacket/pcap
+# github.com/google/uuid v1.3.0
+## explicit
+github.com/google/uuid
 # github.com/hashicorp/errwrap v1.0.0
 ## explicit
 github.com/hashicorp/errwrap

@@ -4,8 +4,16 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"golang.org/x/net/http2/hpack"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	PseudoHeaderPath = ":path"
 )
 
 const (
@@ -136,6 +144,20 @@ func NewStream() *Stream {
 	s.EndStream = false
 	s.EndHeader = false
 	return &s
+}
+
+func (s *Stream) toMsg() *protocol.Message {
+	var msg protocol.Message
+	id := uuid.Must(uuid.NewUUID())
+	msg.Meta.Version = 1
+	msg.Meta.UUID = id.String()
+	msg.Meta.Timestamp = time.Now().UnixNano()
+
+	msg.Data.Headers = s.Headers
+	msg.Data.Method = s.Method
+	msg.Data.Request = s.Request
+
+	return &msg
 }
 
 func (s *Stream) Reset() {

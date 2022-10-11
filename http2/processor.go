@@ -1,21 +1,33 @@
 package http2
 
 import (
+	"context"
+	"encoding/json"
+	"github.com/fullstorydev/grpcurl"
+	"github.com/golang/protobuf/proto"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
+	"google.golang.org/grpc"
+	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"strings"
+	"sync"
 )
 
 type Processor struct {
 	ConnRepository map[DirectConn]*Http2Conn
 	InputChan      chan *NetPkg
 	OutputChan     chan *protocol.Message
+	Finder         *PBMessageFinder
 }
 
-func NewProcessor(input chan *NetPkg) *Processor {
+func NewProcessor(input chan *NetPkg, svcAddr string) *Processor {
 	var p Processor
 	p.ConnRepository = make(map[DirectConn]*Http2Conn, 100)
 	p.InputChan = input
 	p.OutputChan = make(chan *protocol.Message, 100)
+	p.Finder = NewPBMessageFinder(svcAddr)
 	slog.Info("create new Processer")
 	return &p
 }
@@ -92,6 +104,30 @@ func (p *Processor) ProcessFrame(f *FrameBase) {
 }
 
 func (p *Processor) processFrameData(f *FrameBase) {
+	fd, err := ParseFrameData(f)
+	if err != nil {
+		slog.Error("ParseFrameData:%v", err)
+		return
+	}
+
+	hc := p.ConnRepository[*f.DirectConn]
+	// 设置stream的状态
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	// 把protobuf转换为JSON字符串
+	if len(fd.Data) > 0 {
+		pbMsg := p.Finder.FindMethodInput(stream.Method)
+		err = proto.Unmarshal(fd.Data, pbMsg)
+		if err != nil {
+			slog.Error("proto.Unmarshal:%v", err)
+		}
+		stream.Request, _ = json.Marshal(p)
+	}
+
+	if fd.EndStream {
+		p.OutputChan <- stream.toMsg()
+		stream.Reset()
+	}
 }
 
 func (p *Processor) processFrameHeader(f *FrameBase) {
@@ -103,7 +139,7 @@ func (p *Processor) processFrameHeader(f *FrameBase) {
 
 	hc := p.ConnRepository[*f.DirectConn]
 	// 设置stream的状态
-	index := fh.fb.StreamID % StreamArraySize
+	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
 	stream.StreamID = f.StreamID
 	stream.EndStream = fh.EndStream
@@ -120,7 +156,15 @@ func (p *Processor) processFrameHeader(f *FrameBase) {
 	}
 	for _, field := range fields {
 		stream.Headers[field.Name] = field.Value
+		if field.Name == PseudoHeaderPath {
+			stream.Method = field.Value
+		}
 		slog.Debug(field.String())
+	}
+
+	if fh.EndStream {
+		p.OutputChan <- stream.toMsg()
+		stream.Reset()
 	}
 }
 
@@ -151,7 +195,11 @@ func (p *Processor) processFrameContinuation(f *FrameBase) {
 		return
 	}
 
-	hc := p.ConnRepository[*f.DirectConn]
+	hc, ok := p.ConnRepository[*f.DirectConn]
+	if !ok {
+		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
+		return
+	}
 	// 设置stream的状态
 	index := fc.fb.StreamID % StreamArraySize
 	stream := hc.Streams[index]
@@ -174,9 +222,88 @@ func (p *Processor) processFrameContinuation(f *FrameBase) {
 }
 
 func (p *Processor) processFrameGoAway(f *FrameBase) {
-
+	_, ok := p.ConnRepository[*f.DirectConn]
+	if !ok {
+		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
+		return
+	}
+	// remove http2Conn
+	delete(p.ConnRepository, *f.DirectConn)
 }
 
 func (p *Processor) processFrameRSTStream(f *FrameBase) {
+	hc, ok := p.ConnRepository[*f.DirectConn]
+	if !ok {
+		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
+		return
+	}
+	// 设置stream的状态
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.Reset()
+}
 
+type PBMessageFinder struct {
+	cacheMu   sync.RWMutex
+	symbolMsg map[string]proto.Message
+	// server address
+	addr string
+}
+
+func NewPBMessageFinder(addr string) *PBMessageFinder {
+	var f PBMessageFinder
+	// svcAndMethod -> proto.Message
+	f.symbolMsg = make(map[string]proto.Message)
+	f.addr = addr
+	return &f
+}
+
+func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
+	f.cacheMu.RLock()
+	m, ok := f.symbolMsg[svcAndMethod]
+	f.cacheMu.RUnlock()
+	if ok {
+		return m
+	}
+	// can't find in cache
+	var cc *grpc.ClientConn
+	network := "tcp"
+	ctx := context.Background()
+	cc, err := grpcurl.BlockingDial(ctx, network, f.addr, nil)
+	if err != nil {
+		slog.Fatal("PBMessageFinder.FindMethodInput, addr:%v, error:%v,enable grpc reflection service？",
+			f.addr, err)
+	}
+	refClient := grpcreflect.NewClient(ctx, reflectpb.NewServerReflectionClient(cc))
+	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
+	svc, method := parseSymbol(svcAndMethod)
+	dsc, err := descSource.FindSymbol(svc)
+	if err != nil {
+		slog.Fatal("descSource.FindSymbol, service:%v, error:%v", svc, err)
+	}
+	sd, ok := dsc.(*desc.ServiceDescriptor)
+	if !ok {
+		slog.Fatal("FindMethodInput, error:%v", err)
+	}
+	mtd := sd.FindMethodByName(method)
+	pbMsg := mtd.GetInputType().AsProto()
+
+	f.cacheMu.Lock()
+	f.symbolMsg[svcAndMethod] = pbMsg
+	f.cacheMu.Unlock()
+	return pbMsg
+}
+
+func parseSymbol(svcAndMethod string) (string, string) {
+	if svcAndMethod[0] == '/' {
+		svcAndMethod = svcAndMethod[1:]
+	}
+	pos := strings.LastIndex(svcAndMethod, "/")
+	if pos < 0 {
+		pos = strings.LastIndex(svcAndMethod, ".")
+		if pos < 0 {
+			return "", ""
+		}
+	}
+	return svcAndMethod[:pos], svcAndMethod[pos+1:]
 }

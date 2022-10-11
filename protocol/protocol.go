@@ -10,11 +10,11 @@ type Message struct {
 	Meta struct {
 		Version   int    `json:"version"`
 		UUID      string `json:"uuid"`
-		Timestamp int    `json:"timestamp"`
+		Timestamp int64  `json:"timestamp"`
 	}
 	Data struct {
-		Headers map[string][]string `json:"headers"`
-		Method  string              `json:"method"`
-		Request string              `json:"request"`
+		Headers map[string]string `json:"headers"`
+		Method  string            `json:"method"`
+		Request []byte            `json:"request"`
 	}
 }
