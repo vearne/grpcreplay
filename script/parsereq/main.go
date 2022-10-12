@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/fullstorydev/grpcurl"
@@ -46,8 +47,12 @@ func main() {
 	inputType := mtd.GetInputType()
 	fmt.Println("mtd.GetInputType()", inputType.GetName(), inputType.GetFullyQualifiedName())
 	p := inputType.AsProto()
-	data := []byte{}
-	err = proto.Unmarshal(data, p)
+	data, err := base64.StdEncoding.DecodeString("AAAAAAYKBGdSUEM=")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("length", len(data), "data", data)
+	err = proto.Unmarshal(data[5:], p)
 	if err != nil {
 		panic(err)
 	}

@@ -155,7 +155,7 @@ func (s *Stream) toMsg() *protocol.Message {
 
 	msg.Data.Headers = s.Headers
 	msg.Data.Method = s.Method
-	msg.Data.Request = s.Request
+	msg.Data.Request = string(s.Request)
 
 	return &msg
 }
@@ -282,12 +282,20 @@ func ParseFrameData(f *FrameBase) (*FrameData, error) {
 	fh.EndStream = f.Flags&0x1 != 0
 	fh.Padded = f.Flags&0x8 != 0
 
-	reader := bytes.NewReader(f.Payload)
-	err = binary.Read(reader, binary.BigEndian, &fh.PadLength)
-	if err != nil {
-		return nil, err
+	slog.Warn("ParseFrameData, payload:%v", len(f.Payload))
+	start := 0
+	// Pad Length(optional)
+	if fh.Padded {
+		start += 1
+
+		reader := bytes.NewReader(f.Payload)
+		//binary.BigEndian
+		err = binary.Read(reader, binary.BigEndian, &fh.PadLength)
+		if err != nil {
+			return nil, err
+		}
 	}
-	fh.Data = f.Payload[1 : len(fh.Data)-int(fh.PadLength)]
+	fh.Data = f.Payload[start : len(f.Payload)-int(fh.PadLength)]
 	return &fh, nil
 }
 
@@ -313,6 +321,35 @@ type FrameData struct {
 	// Frame Payload
 	PadLength uint8
 	Data      []byte
+}
+
+func (fd *FrameData) ParseGRPCMessage() (*GRPCMessage, error) {
+	var gm GRPCMessage
+	gm.PayloadFormat = payloadFormat(fd.Data[0])
+	gm.Length = binary.BigEndian.Uint32(fd.Data[1:])
+	gm.EncodedMessage = fd.Data[5:]
+	return &gm, nil
+}
+
+type GRPCMessage struct {
+	// ------ complete gRPC Message------
+	// https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md
+	//	gRPC lets you use encoders other than Protobuf.
+	//  gRPC is compatible with JSON, Thrift, Avro, Flatbuffers, Cap’n Proto, and even raw bytes!
+	/*
+				+--------------------+
+				|  payloadFormat(8)  |
+				+--------------------+------------------------------------------+
+				|                          length(32)                           |
+				+---------------------------------------------------------------+
+				|                        encodedMessage(*)                  ... |
+				+---------------------------------------------------------------+
+			   payloadFormat: compressed or not?
+		       encodedMessage: Protobuf,JSON,Thrift,etc.
+	*/
+	PayloadFormat  payloadFormat
+	Length         uint32
+	EncodedMessage []byte
 }
 
 type FrameHeader struct {

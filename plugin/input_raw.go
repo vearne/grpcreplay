@@ -221,7 +221,7 @@ func (i *RAWInput) Listen() {
 			// trigger challenge ack
 			// remote -> local
 			// src -> dst
-			// 伪造一个从local -> remote的packet
+			// Fake a packet from local -> remote
 			sendFakePkg(uint32(rand.Intn(100)), conn.DstAddr.IP, uint16(conn.DstAddr.Port),
 				conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), SYN)
 		}
@@ -232,17 +232,8 @@ func (i *RAWInput) Listen() {
 
 // PluginRead reads meassage from this plugin
 func (i *RAWInput) Read() (*protocol.Message, error) {
-	var finish bool = false
-	for !finish {
-		pkg := <-i.outputChan
-		payload := pkg.TCP.Payload
-		if len(payload) <= http2.HeaderSize {
-			continue
-		}
-		//p
-	}
-
-	return nil, nil
+	msg := <-i.Processor.OutputChan
+	return msg, nil
 }
 
 // Close closes the input raw listener

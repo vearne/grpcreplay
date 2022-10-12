@@ -1,16 +1,12 @@
 package biz
 
 import (
-	//"fmt"
+	"encoding/json"
+	"fmt"
+	"github.com/vearne/grpcreplay/filter"
 	slog "github.com/vearne/simplelog"
-	"time"
-
-	//"hash/fnv"
 	"io"
-	//"log"
 	"sync"
-	//"github.com/buger/goreplay/byteutils"
-	//"github.com/coocood/freecache"
 )
 
 // Emitter represents an abject to manage plugins communication
@@ -54,91 +50,17 @@ func (e *Emitter) Close() {
 
 // CopyMulty copies from 1 reader to multiple writers
 func CopyMulty(src PluginReader, writers ...PluginWriter) error {
+	filterTool := filter.NewMethodExcludeFilter("grpc.reflection")
 	for {
-		slog.Debug("for-PluginRead")
-		//src.Read()
-		time.Sleep(1 * time.Minute)
+		msg, _ := src.Read()
+		msg, ok := filterTool.Filter(msg)
+		if ok {
+			bt, _ := json.Marshal(msg)
+			fmt.Println(string(bt))
+		}
+		//if ok {
+		//	fmt.Println(string(msg.Data.Request))
+		//}
 	}
 	return nil
-	//wIndex := 0
-	//filteredRequests := freecache.NewCache(200 * 1024 * 1024) // 200M
-	//
-	//for {
-	//	msg, err := src.PluginRead()
-	//	if err != nil {
-	//		if err == ErrorStopped || err == io.EOF {
-	//			return nil
-	//		}
-	//		return err
-	//	}
-	//	if msg != nil && len(msg.Data) > 0 {
-	//		if len(msg.Data) > int(Settings.CopyBufferSize) {
-	//			msg.Data = msg.Data[:Settings.CopyBufferSize]
-	//		}
-	//		meta := payloadMeta(msg.Meta)
-	//		if len(meta) < 3 {
-	//			Debug(2, fmt.Sprintf("[EMITTER] Found malformed record %q from %q", msg.Meta, src))
-	//			continue
-	//		}
-	//		requestID := meta[1]
-	//		// start a subroutine only when necessary
-	//		if Settings.Verbose >= 3 {
-	//			Debug(3, "[EMITTER] input: ", byteutils.SliceToString(msg.Meta[:len(msg.Meta)-1]), " from: ", src)
-	//		}
-	//		if modifier != nil {
-	//			Debug(3, "[EMITTER] modifier:", requestID, "from:", src)
-	//			if isRequestPayload(msg.Meta) {
-	//				msg.Data = modifier.Rewrite(msg.Data)
-	//				// If modifier tells to skip request
-	//				if len(msg.Data) == 0 {
-	//					filteredRequests.Set(requestID, []byte{}, 60) //
-	//					continue
-	//				}
-	//				Debug(3, "[EMITTER] Rewritten input:", requestID, "from:", src)
-	//
-	//			} else {
-	//				_, err := filteredRequests.Get(requestID)
-	//				if err == nil {
-	//					filteredRequests.Del(requestID)
-	//					continue
-	//				}
-	//			}
-	//		}
-	//
-	//		if Settings.PrettifyHTTP {
-	//			msg.Data = prettifyHTTP(msg.Data)
-	//			if len(msg.Data) == 0 {
-	//				continue
-	//			}
-	//		}
-	//
-	//		if Settings.SplitOutput {
-	//			if Settings.RecognizeTCPSessions {
-	//				if !PRO {
-	//					log.Fatal("Detailed TCP sessions work only with PRO license")
-	//				}
-	//				hasher := fnv.New32a()
-	//				hasher.Write(meta[1])
-	//
-	//				wIndex = int(hasher.Sum32()) % len(writers)
-	//				if _, err := writers[wIndex].PluginWrite(msg); err != nil {
-	//					return err
-	//				}
-	//			} else {
-	//				// Simple round robin
-	//				if _, err := writers[wIndex].PluginWrite(msg); err != nil {
-	//					return err
-	//				}
-	//
-	//				wIndex = (wIndex + 1) % len(writers)
-	//			}
-	//		} else {
-	//			for _, dst := range writers {
-	//				if _, err := dst.PluginWrite(msg); err != nil && err != io.ErrClosedPipe {
-	//					return err
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
 }

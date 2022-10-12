@@ -1,6 +1,11 @@
 package http2
 
 const (
+	CodecProtobuf = iota
+	CodecOther
+)
+
+const (
 	HeaderSize            = 9
 	LengthSize            = 3
 	ConnectionPrefaceSize = 24
@@ -30,3 +35,11 @@ func GetDirection(d Dir) string {
 	}
 	return "UNKNOW"
 }
+
+// The format of the payload: compressed or not?
+type payloadFormat uint8
+
+const (
+	compressionNone payloadFormat = 0 // no compression
+	compressionMade payloadFormat = 1 // compressed
+)

@@ -114,19 +114,40 @@ func (p *Processor) processFrameData(f *FrameBase) {
 	// 设置stream的状态
 	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
+
 	// 把protobuf转换为JSON字符串
 	if len(fd.Data) > 0 {
-		pbMsg := p.Finder.FindMethodInput(stream.Method)
-		err = proto.Unmarshal(fd.Data, pbMsg)
-		if err != nil {
-			slog.Error("proto.Unmarshal:%v", err)
+		codecType := getCodecType(stream.Headers)
+		msg, _ := fd.ParseGRPCMessage()
+		if codecType == CodecProtobuf {
+			// 注意:暂时只处理 1. 未开启压缩 2.编码方式为Protobuf的情况
+			pbMsg := p.Finder.FindMethodInput(stream.Method)
+			slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
+			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
+			if err != nil {
+				slog.Error("proto.Unmarshal:%v", err)
+			}
+			stream.Request, err = json.Marshal(pbMsg)
+			if err != nil {
+				slog.Error("json.Marshal:%v", err)
+			}
+		} else {
+			stream.Request = msg.EncodedMessage
 		}
-		stream.Request, _ = json.Marshal(p)
 	}
 
 	if fd.EndStream {
 		p.OutputChan <- stream.toMsg()
 		stream.Reset()
+	}
+}
+
+func getCodecType(headers map[string]string) int {
+	contentType, ok := headers["content-type"]
+	if !ok || contentType == "application/grpc" {
+		return CodecProtobuf
+	} else {
+		return CodecOther
 	}
 }
 
@@ -286,7 +307,11 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 		slog.Fatal("FindMethodInput, error:%v", err)
 	}
 	mtd := sd.FindMethodByName(method)
-	pbMsg := mtd.GetInputType().AsProto()
+	inputType := mtd.GetInputType()
+
+	slog.Warn("---inputType:%v", inputType.GetFullyQualifiedName())
+
+	pbMsg := inputType.AsProto()
 
 	f.cacheMu.Lock()
 	f.symbolMsg[svcAndMethod] = pbMsg

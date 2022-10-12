@@ -15,6 +15,6 @@ type Message struct {
 	Data struct {
 		Headers map[string]string `json:"headers"`
 		Method  string            `json:"method"`
-		Request []byte            `json:"request"`
+		Request string            `json:"request"`
 	}
 }
