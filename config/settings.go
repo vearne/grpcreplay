@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-// MultiOption allows to specify multiple flags with same name and collects all values into array
-type MultiOption struct {
+type MultiStringOption struct {
 	Params *[]string
 }
 
-func (h *MultiOption) String() string {
+func (h *MultiStringOption) String() string {
 	if h.Params == nil {
 		return ""
 	}
@@ -20,7 +19,7 @@ func (h *MultiOption) String() string {
 }
 
 // Set gets called multiple times for each flag with same name
-func (h *MultiOption) Set(value string) error {
+func (h *MultiStringOption) Set(value string) error {
 	if h.Params == nil {
 		return nil
 	}
@@ -70,4 +69,6 @@ type AppSettings struct {
 	//OutputFileConfig plugin.FileOutputConfig
 
 	OutputKafkaConfig plugin.OutputKafkaConfig
+	// --- other ---
+	Codec string `json:"codec"`
 }

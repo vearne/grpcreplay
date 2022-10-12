@@ -282,7 +282,6 @@ func ParseFrameData(f *FrameBase) (*FrameData, error) {
 	fh.EndStream = f.Flags&0x1 != 0
 	fh.Padded = f.Flags&0x8 != 0
 
-	slog.Warn("ParseFrameData, payload:%v", len(f.Payload))
 	start := 0
 	// Pad Length(optional)
 	if fh.Padded {

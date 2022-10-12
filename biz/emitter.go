@@ -1,8 +1,6 @@
 package biz
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/vearne/grpcreplay/filter"
 	slog "github.com/vearne/simplelog"
 	"io"
@@ -55,9 +53,12 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 		msg, _ := src.Read()
 		msg, ok := filterTool.Filter(msg)
 		if ok {
-			bt, _ := json.Marshal(msg)
-			fmt.Println(string(bt))
+			for _, dst := range writers {
+				if err := dst.Write(msg); err != nil && err != io.ErrClosedPipe {
+					return err
+				}
+			}
 		}
+
 	}
-	return nil
 }

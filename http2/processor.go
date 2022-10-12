@@ -116,7 +116,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 	stream := hc.Streams[index]
 
 	// 把protobuf转换为JSON字符串
-	if len(fd.Data) > 0 {
+	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
 		codecType := getCodecType(stream.Headers)
 		msg, _ := fd.ParseGRPCMessage()
 		if codecType == CodecProtobuf {
@@ -125,11 +125,11 @@ func (p *Processor) processFrameData(f *FrameBase) {
 			slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
 			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
 			if err != nil {
-				slog.Error("proto.Unmarshal:%v", err)
+				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
 			}
 			stream.Request, err = json.Marshal(pbMsg)
 			if err != nil {
-				slog.Error("json.Marshal:%v", err)
+				slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
 			}
 		} else {
 			stream.Request = msg.EncodedMessage
@@ -165,7 +165,7 @@ func (p *Processor) processFrameHeader(f *FrameBase) {
 	stream.StreamID = f.StreamID
 	stream.EndStream = fh.EndStream
 	stream.EndHeader = fh.EndHeader
-	slog.Info("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
+	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
 		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream, hc.MaxDynamicTableSize)
 
 	hdec := hc.HeaderDecoder
@@ -308,8 +308,6 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	}
 	mtd := sd.FindMethodByName(method)
 	inputType := mtd.GetInputType()
-
-	slog.Warn("---inputType:%v", inputType.GetFullyQualifiedName())
 
 	pbMsg := inputType.AsProto()
 

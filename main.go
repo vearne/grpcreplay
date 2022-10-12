@@ -17,28 +17,30 @@ func init() {
 	flag.DurationVar(&settings.ExitAfter, "exit-after", 0, "exit after specified duration")
 
 	// #################### input ######################
-	flag.Var(&config.MultiOption{&settings.InputRAW}, "input-raw",
+	flag.Var(&config.MultiStringOption{&settings.InputRAW}, "input-raw",
 		`Capture traffic from given port (use RAW sockets and require *sudo* access):
                 # Capture traffic from 8080 port
                 grpcr --input-raw :8080 --output-grpc grpc://xxx.com
                `)
 
-	flag.Var(&config.MultiOption{&settings.InputFile}, "input-file", "Read requests from file")
+	flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
 	flag.BoolVar(&settings.InputFileLoop, "input-file-loop", false, "")
 	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
 	// #################### output ######################
 	flag.BoolVar(&settings.OutputStdout, "output-stdout", false,
-		"Used for testing inputs. Just prints to console data coming from inputs.")
+		"Just prints data to console")
 
-	flag.Var(&config.MultiOption{&settings.OutputGRPC}, "output-grpc",
+	flag.Var(&config.MultiStringOption{&settings.OutputGRPC}, "output-grpc",
 		`Forwards incoming requests to given grpc address.
 			    # Redirect all incoming requests to xxx.com address
                 grpcr --input-raw :80 --output-grpc grpc://xxx.com")`)
 
-	flag.Var(&config.MultiOption{&settings.OutputFile},
+	flag.Var(&config.MultiStringOption{&settings.OutputFile},
 		"output-file",
 		`Write incoming requests to file: 
 		        grpcr --input-raw :80 --output-file ./requests.gor`)
+
+	flag.StringVar(&settings.Codec, "codec", "simple", "")
 }
 
 func main() {

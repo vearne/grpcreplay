@@ -29,7 +29,7 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 	//}
 	//
 	if settings.OutputStdout {
-		plugins.registerPlugin(plugin.NewStdOutput)
+		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
 
 	//for _, path := range settings.OutputFile {
@@ -45,7 +45,6 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 
 // Automatically detects type of plugin and initialize it
 //
-// See this article if curious about reflect stuff below: http://blog.burntsushi.net/type-parametric-functions-golang
 func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...interface{}) {
 
 	vc := reflect.ValueOf(constructor)
