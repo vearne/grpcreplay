@@ -58,9 +58,6 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 			bt, _ := json.Marshal(msg)
 			fmt.Println(string(bt))
 		}
-		//if ok {
-		//	fmt.Println(string(msg.Data.Request))
-		//}
 	}
 	return nil
 }
