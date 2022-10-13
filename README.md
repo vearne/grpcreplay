@@ -48,6 +48,10 @@ sudo -s
 ```
 export SIMPLE_LOG_LEVEL=debug
 ```
+### 感谢
+受到 [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl) 
+和 [buger/goreplay](https://github.com/buger/goreplay)的启发
+
 ## TODO
 * [x] 1)发现与目标端口关联的所有连接
 * [x] 2)使用旁路阻断逐个结束这些连接

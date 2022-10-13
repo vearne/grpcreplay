@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/vearne/grpcreplay/biz"
 	"github.com/vearne/grpcreplay/config"
+	"github.com/vearne/grpcreplay/consts"
 	slog "github.com/vearne/simplelog"
 	"os"
 	"os/signal"
@@ -12,8 +14,12 @@ import (
 )
 
 var settings config.AppSettings
+var version bool
 
 func init() {
+	flag.BoolVar(&version, "version", false,
+		"print version")
+
 	flag.DurationVar(&settings.ExitAfter, "exit-after", 0, "exit after specified duration")
 
 	// #################### input ######################
@@ -45,6 +51,13 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if version {
+		fmt.Println("service: grpcreplay")
+		fmt.Println("Version", consts.Version)
+		fmt.Println("BuildTime", consts.BuildTime)
+		fmt.Println("GitTag", consts.GitTag)
+		return
+	}
 
 	printSettings(&settings)
 
