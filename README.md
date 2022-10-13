@@ -36,8 +36,11 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
+
 指定codec   可选值: "simple" |  "json"
+```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
+```
 
 ## 调试
 设置日志级别
