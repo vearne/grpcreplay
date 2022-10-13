@@ -42,8 +42,9 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 2)使用旁路阻断逐个结束这些连接
 * [x] 3)抓取目标端口上的请求并解析
 * [x] 4)GRPC请求重放
-* [ ] 5)支持将GRPC请求写入文件/stdout
-* [ ] 6)支持将GRPC请求写入kafka
-* [ ] 7)支持将GRPC请求写入RocketMQ
-* [ ] 8)支持自定义filter
-* [ ] 9)支持TLS
+* [x] 5)支持将GRPC请求写入控制台
+* [ ] 6)支持将GRPC请求写入文件
+* [ ] 7)支持将GRPC请求写入kafka
+* [ ] 8)支持将GRPC请求写入RocketMQ
+* [ ] 9)支持自定义filter
+* [ ] 10)支持TLS
