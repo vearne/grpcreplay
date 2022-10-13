@@ -12,9 +12,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 
-	//"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/proto"
-	//dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	protov2 "google.golang.org/protobuf/proto"
 	"reflect"
 
@@ -135,13 +133,6 @@ func main() {
 	if err := proto.Unmarshal(b, msg); err != nil {
 		panic(err)
 	}
-	//fmt.Println("-----4-----")
-	//msg.Range(func(descriptor pref.FieldDescriptor, value pref.Value) bool {
-	//	fmt.Printf("field: %v, jsonName:%v, value: %v, type:%v \n",
-	//		descriptor.Name(), descriptor.JSONName(), value)
-	//	return true
-	//})
-
 	jsonPrint(msg)
 }
 

@@ -69,6 +69,22 @@ func (o *GRPCOutput) Write(msg *protocol.Message) (err error) {
 
 	// /proto.SearchService/Search  ->  proto.SearchService/Search
 	symbol := msg.Data.Method[1:]
-	err = grpcurl.InvokeRPC(context.Background(), o.descSource, o.cc, symbol, nil, h, rf.Next)
+
+	headers := convertHeader(msg)
+	err = grpcurl.InvokeRPC(context.Background(), o.descSource, o.cc, symbol, headers, h, rf.Next)
 	return err
+}
+
+func convertHeader(msg *protocol.Message) (headers []string) {
+	headers = make([]string, 0, len(msg.Data.Headers))
+	for key, value := range msg.Data.Headers {
+		if !IsPseudo(key) {
+			headers = append(headers, key+":"+value)
+		}
+	}
+	return headers
+}
+
+func IsPseudo(key string) bool {
+	return strings.HasPrefix(key, ":")
 }

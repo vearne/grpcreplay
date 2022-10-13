@@ -13,7 +13,7 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 1. 暂时只支持h2c, 不支持h2
 2. 目前gRPC的编码只支持Protobuf且不支持使用Compressor。 
 参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
-3. gPRC 服务端需要开启发射机制
+3. gPRC 服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
 5. 需要macOS上需要sudo
 ```
@@ -25,10 +25,10 @@ sudo -s
 ./grpcr --input-raw="0.0.0.0:8080" --output-stdout
 ```
 ```
-go run main.go --input-raw="0.0.0.0:8080" --output-stdout
+./grpcr --input-raw="127.0.0.1:35001" --output-stdout
 ```
 ```
-go run main.go --input-raw="127.0.0.1:35001" --output-stdout
+./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
 ## 调试

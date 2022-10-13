@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const PORT = "35001"
+const PORT = "35002"
 
 type SearchServer struct{}
 

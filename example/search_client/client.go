@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
 	"time"
@@ -15,20 +16,25 @@ import (
 const PORT = "35001"
 
 func main() {
-
 	conn, err := grpc.Dial(":"+PORT, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("grpc.Dial err: %v", err)
 	}
 	defer conn.Close()
 
+	// add some headers
+	md := metadata.New(map[string]string{
+		"testkey1": "testvalue1",
+		"testkey2": "testvalue2",
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
 	client := pb.NewSearchServiceClient(conn)
 	for i := 0; i < 10000; i++ {
-		ctx := context.Background()
 		resp, err := client.Search(ctx,
 			&pb.SearchRequest{
 				StaffName: "zhangsan",
-				Age:       10,
+				Age:       uint32(i % 100),
 				Gender:    true,
 			},
 		)

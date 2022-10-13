@@ -8,7 +8,9 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	//"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/proto"
@@ -106,39 +108,30 @@ func main() {
 	}
 	//proto.Marshal(&inputReq)
 	fmt.Println("----1----", len(b), string(b))
-
-	msg := inputType.AsProto()
-	err = proto.Unmarshal(b, msg)
-	if err != nil {
-		panic(err)
-	}
-	jsonPrint(proto.MessageV2(msg))
-	//newPB := constructPB()
-	//// get FileDescriptor
-	//fd, err := protodesc.NewFile(newPB, nil)
-	//searchReqMsgDescriptor := fd.Messages().ByName("SearchRequest")
+	fd := inputType.GetFile().AsFileDescriptorProto()
+	fmt.Println(fd.String())
+	// get FileDescriptor
+	pf, err := protodesc.NewFile(fd, nil)
+	pf.Messages().ByName("SearchRequest")
+	searchReqMsgDescriptor := pf.Messages().ByName("SearchRequest")
 	//fDesc := searchReqMsgDescriptor.Fields().ByName("staffName")
 	//fmt.Println("----3----", fDesc.Index())
 	//fDesc = searchReqMsgDescriptor.Fields().ByName("gender")
 	//fmt.Println("----3----", fDesc.Index())
 	//fDesc = searchReqMsgDescriptor.Fields().ByName("age")
 	//fmt.Println("----3----", fDesc.Index())
-	//
-	//msg := dynamicpb.NewMessage(searchReqMsgDescriptor)
-	//fmt.Println("msg.Type()", msg.Type())
-	////cloneMsg := protov2.Clone(msg)
-	//fmt.Println("----1----", len(b), string(b))
-	//if err := proto.Unmarshal(b, msg); err != nil {
-	//	panic(err)
-	//}
-	//fmt.Println("-----4-----")
-	//msg.Range(func(descriptor pref.FieldDescriptor, value pref.Value) bool {
-	//	fmt.Printf("field: %v, jsonName:%v, value: %v, type:%v \n",
-	//		descriptor.Name(), descriptor.JSONName(), value)
-	//	return true
-	//})
+	timeReqMsgDescriptor := pf.Messages().ByName("TimeResponse")
+	fDesc := timeReqMsgDescriptor.Fields().ByName("currentTime")
+	fmt.Println("----currentTime----", fDesc.Index(), fDesc.Kind(), fDesc.JSONName())
 
-	//jsonPrint(msg)
+	msg := dynamicpb.NewMessage(searchReqMsgDescriptor)
+	fmt.Println("msg.Type()", msg.Type())
+	//cloneMsg := protov2.Clone(msg)
+	fmt.Println("----1----", len(b), string(b))
+	if err := proto.Unmarshal(b, msg); err != nil {
+		panic(err)
+	}
+	jsonPrint(msg)
 }
 
 func jsonPrint(v protov2.Message) {

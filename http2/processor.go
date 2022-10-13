@@ -2,19 +2,20 @@ package http2
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/fullstorydev/grpcurl"
-	"github.com/golang/protobuf/proto"
+	//"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	pref "google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
-	protoV2 "google.golang.org/protobuf/proto"
 	"strings"
 	"sync"
 )
@@ -127,16 +128,21 @@ func (p *Processor) processFrameData(f *FrameBase) {
 			// 注意:暂时只处理 1. 未开启压缩 2.编码方式为Protobuf的情况
 			pbMsg := p.Finder.FindMethodInput(stream.Method)
 
-			//pbMsg.ProtoMessage()
-			err = protojson.Unmarshal(msg.EncodedMessage, pbMsg)
+			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
 			if err != nil {
 				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
 			}
-			stream.Request, err = json.Marshal(pbMsg)
+
+			//pbMsg.ProtoReflect().Range(func(descriptor pref.FieldDescriptor, value pref.Value) bool {
+			//	fmt.Printf("field: %v, jsonName:%v, value: %v \n",
+			//		descriptor.Name(), descriptor.JSONName(), value)
+			//	return true
+			//})
+
+			stream.Request, err = protojson.Marshal(pbMsg)
 			if err != nil {
 				slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
 			}
-			fmt.Println("-------stream.Request:-----", string(stream.Request))
 		} else {
 			stream.Request = msg.EncodedMessage
 		}
@@ -272,7 +278,7 @@ func (p *Processor) processFrameRSTStream(f *FrameBase) {
 
 type PBMessageFinder struct {
 	cacheMu   sync.RWMutex
-	symbolMsg map[string]protoV2.Message
+	symbolMsg map[string]proto.Message
 	// server address
 	addr string
 }
@@ -280,12 +286,12 @@ type PBMessageFinder struct {
 func NewPBMessageFinder(addr string) *PBMessageFinder {
 	var f PBMessageFinder
 	// svcAndMethod -> proto.Message
-	f.symbolMsg = make(map[string]protoV2.Message)
+	f.symbolMsg = make(map[string]proto.Message)
 	f.addr = addr
 	return &f
 }
 
-func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) protoV2.Message {
+func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	f.cacheMu.RLock()
 	m, ok := f.symbolMsg[svcAndMethod]
 	f.cacheMu.RUnlock()
@@ -314,15 +320,16 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) protoV2.Message {
 	}
 	mtd := sd.FindMethodByName(method)
 	inputType := mtd.GetInputType()
+	fd := inputType.GetFile().AsFileDescriptorProto()
+	// get FileDescriptor
+	pf, err := protodesc.NewFile(fd, nil)
+	reqMsgDescriptor := pf.Messages().ByName(pref.Name(inputType.GetName()))
+	msg := dynamicpb.NewMessage(reqMsgDescriptor)
 
-	pbMsg := inputType.AsProto()
-	// protoreflect.ProtoMessage
-	pbMsgV2 := proto.MessageV2(pbMsg)
-	fmt.Println("----2----", pbMsg.String())
 	f.cacheMu.Lock()
-	f.symbolMsg[svcAndMethod] = proto.MessageV2(pbMsg)
+	f.symbolMsg[svcAndMethod] = msg
 	f.cacheMu.Unlock()
-	return pbMsgV2
+	return msg
 }
 
 func parseSymbol(svcAndMethod string) (string, string) {
