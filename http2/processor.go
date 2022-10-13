@@ -8,12 +8,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"google.golang.org/protobuf/encoding/protojson"
 
-	//jsoniter "github.com/json-iterator/go"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	protoV2 "google.golang.org/protobuf/proto"
 	"strings"
 	"sync"
 )
@@ -125,10 +126,9 @@ func (p *Processor) processFrameData(f *FrameBase) {
 		if codecType == CodecProtobuf {
 			// 注意:暂时只处理 1. 未开启压缩 2.编码方式为Protobuf的情况
 			pbMsg := p.Finder.FindMethodInput(stream.Method)
-			defer pbMsg.Reset()
 
 			//pbMsg.ProtoMessage()
-			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
+			err = protojson.Unmarshal(msg.EncodedMessage, pbMsg)
 			if err != nil {
 				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
 			}
@@ -272,7 +272,7 @@ func (p *Processor) processFrameRSTStream(f *FrameBase) {
 
 type PBMessageFinder struct {
 	cacheMu   sync.RWMutex
-	symbolMsg map[string]proto.Message
+	symbolMsg map[string]protoV2.Message
 	// server address
 	addr string
 }
@@ -280,12 +280,12 @@ type PBMessageFinder struct {
 func NewPBMessageFinder(addr string) *PBMessageFinder {
 	var f PBMessageFinder
 	// svcAndMethod -> proto.Message
-	f.symbolMsg = make(map[string]proto.Message)
+	f.symbolMsg = make(map[string]protoV2.Message)
 	f.addr = addr
 	return &f
 }
 
-func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
+func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) protoV2.Message {
 	f.cacheMu.RLock()
 	m, ok := f.symbolMsg[svcAndMethod]
 	f.cacheMu.RUnlock()
@@ -316,11 +316,13 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	inputType := mtd.GetInputType()
 
 	pbMsg := inputType.AsProto()
+	// protoreflect.ProtoMessage
+	pbMsgV2 := proto.MessageV2(pbMsg)
 	fmt.Println("----2----", pbMsg.String())
 	f.cacheMu.Lock()
-	f.symbolMsg[svcAndMethod] = pbMsg
+	f.symbolMsg[svcAndMethod] = proto.MessageV2(pbMsg)
 	f.cacheMu.Unlock()
-	return pbMsg
+	return pbMsgV2
 }
 
 func parseSymbol(svcAndMethod string) (string, string) {
