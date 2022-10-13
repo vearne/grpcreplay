@@ -13,7 +13,7 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 2. 使用gRPC的反射机制来获取Message的定义，以便能够解析gRPC请求
 
 ## 架构图
-![](https://github.com/vearne/grpcreplay/raw/master/img/jetbrains.svg)
+![architecture](https://github.com/vearne/grpcreplay/raw/main/img/grpc.svg)
 
 ## 注意（请务必阅读一下）
 1. 暂时只支持h2c, 不支持h2
