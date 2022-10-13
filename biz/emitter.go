@@ -54,11 +54,10 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 		msg, ok := filterTool.Filter(msg)
 		if ok {
 			for _, dst := range writers {
-				if err := dst.Write(msg); err != nil && err != io.ErrClosedPipe {
-					return err
+				if err := dst.Write(msg); err != nil {
+					slog.Error("dst.Write:%v", err)
 				}
 			}
 		}
-
 	}
 }

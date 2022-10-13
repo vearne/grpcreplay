@@ -5,7 +5,9 @@ import (
 	"github.com/vearne/grpcreplay/config"
 	"github.com/vearne/grpcreplay/plugin"
 	slog "github.com/vearne/simplelog"
+	"net/url"
 	"reflect"
+	"strings"
 )
 
 // InOutPlugins struct for holding references to plugins
@@ -32,15 +34,26 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
 
-	//for _, path := range settings.OutputFile {
-	//	plugins.registerPlugin(plugin.NewFileOutput, path, &settings.OutputFileConfig)
-	//}
-
-	//for _, options := range settings.OutputGRPC {
-	//	plugins.registerPlugin(NewHTTPOutput, options, &settings.OutputHTTPConfig)
-	//}
+	for _, addr := range settings.OutputGRPC {
+		addr, err := extractAddr(addr)
+		if err != nil {
+			slog.Fatal("OutputGRPC addr error:%v", err)
+		}
+		plugins.registerPlugin(plugin.NewGRPCOutput, addr)
+	}
 
 	return plugins
+}
+
+func extractAddr(outputGrpc string) (string, error) {
+	if !strings.Contains(outputGrpc, "grpc://") {
+		outputGrpc = "grpc://" + outputGrpc
+	}
+	u, err := url.Parse(outputGrpc)
+	if err != nil {
+		return "nil", err
+	}
+	return u.Host, nil
 }
 
 // Automatically detects type of plugin and initialize it

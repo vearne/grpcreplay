@@ -20,7 +20,7 @@ func init() {
 	flag.Var(&config.MultiStringOption{&settings.InputRAW}, "input-raw",
 		`Capture traffic from given port (use RAW sockets and require *sudo* access):
                 # Capture traffic from 8080 port
-                grpcr --input-raw :8080 --output-grpc grpc://xxx.com
+                grpcr --input-raw :8080 --output-grpc="grpc://xxx.com"
                `)
 
 	flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
@@ -76,8 +76,8 @@ func main() {
 }
 
 func printSettings(settings *config.AppSettings) {
-	slog.Debug("input-raw, %v", settings.InputRAW)
-	slog.Debug("output-stdout, %v", settings.OutputStdout)
-	slog.Debug("output-file, %v", settings.OutputFile)
-	slog.Debug("output-grpc, %v", settings.OutputGRPC)
+	slog.Info("input-raw, %v", settings.InputRAW)
+	slog.Info("output-stdout, %v", settings.OutputStdout)
+	slog.Info("output-file, %v", settings.OutputFile)
+	slog.Info("output-grpc, %v", settings.OutputGRPC)
 }

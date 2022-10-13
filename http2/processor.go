@@ -3,10 +3,13 @@ package http2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+
+	//jsoniter "github.com/json-iterator/go"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"google.golang.org/grpc"
@@ -122,7 +125,9 @@ func (p *Processor) processFrameData(f *FrameBase) {
 		if codecType == CodecProtobuf {
 			// 注意:暂时只处理 1. 未开启压缩 2.编码方式为Protobuf的情况
 			pbMsg := p.Finder.FindMethodInput(stream.Method)
-			slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
+			defer pbMsg.Reset()
+
+			//pbMsg.ProtoMessage()
 			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
 			if err != nil {
 				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
@@ -131,6 +136,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 			if err != nil {
 				slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
 			}
+			fmt.Println("-------stream.Request:-----", string(stream.Request))
 		} else {
 			stream.Request = msg.EncodedMessage
 		}
@@ -310,7 +316,7 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	inputType := mtd.GetInputType()
 
 	pbMsg := inputType.AsProto()
-
+	fmt.Println("----2----", pbMsg.String())
 	f.cacheMu.Lock()
 	f.symbolMsg[svcAndMethod] = pbMsg
 	f.cacheMu.Unlock()

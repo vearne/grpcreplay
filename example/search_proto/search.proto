@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option go_package = "github.com/vearne/grpcreplay/example/search_proto";
+
+service SearchService {
+    rpc Search(SearchRequest) returns (SearchResponse) {}
+    rpc CurrentTime(TimeRequest) returns (TimeResponse) {}
+}
+
+message TimeRequest {
+}
+
+message TimeResponse {
+    string currentTime = 1;
+}
+
+message SearchRequest {
+    string staffName = 1;
+    bool gender = 2;
+    uint32 age = 3;
+}
+
+message SearchResponse {
+    int64 staffID = 1;
+    string staffName = 2;
+}
