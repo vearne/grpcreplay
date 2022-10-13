@@ -16,8 +16,3 @@ type PluginWriter interface {
 	io.Closer
 	Write(msg *protocol.Message) (err error)
 }
-
-type Filter interface {
-	// Filter :If ok is true, it means that the message can pass
-	Filter(msg *protocol.Message) (*protocol.Message, bool)
-}

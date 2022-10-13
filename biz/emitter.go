@@ -10,12 +10,15 @@ import (
 // Emitter represents an abject to manage plugins communication
 type Emitter struct {
 	sync.WaitGroup
-	plugins *InOutPlugins
+	plugins     *InOutPlugins
+	filterChain filter.Filter
 }
 
 // NewEmitter creates and initializes new Emitter object.
-func NewEmitter() *Emitter {
-	return &Emitter{}
+func NewEmitter(f filter.Filter) *Emitter {
+	var e Emitter
+	e.filterChain = f
+	return &e
 }
 
 // Start initialize loop for sending data from inputs to outputs
@@ -25,7 +28,7 @@ func (e *Emitter) Start(plugins *InOutPlugins) {
 		e.Add(1)
 		go func(in PluginReader) {
 			defer e.Done()
-			if err := CopyMulty(in, plugins.Outputs...); err != nil {
+			if err := e.CopyMulty(in, plugins.Outputs...); err != nil {
 				slog.Debug("[EMITTER] error during copy: %q", err)
 			}
 		}(in)
@@ -47,11 +50,10 @@ func (e *Emitter) Close() {
 }
 
 // CopyMulty copies from 1 reader to multiple writers
-func CopyMulty(src PluginReader, writers ...PluginWriter) error {
-	filterTool := filter.NewMethodExcludeFilter("grpc.reflection")
+func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		msg, _ := src.Read()
-		msg, ok := filterTool.Filter(msg)
+		msg, ok := e.filterChain.Filter(msg)
 		if ok {
 			for _, dst := range writers {
 				if err := dst.Write(msg); err != nil {

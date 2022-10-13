@@ -47,7 +47,12 @@ func main() {
 	flag.Parse()
 
 	printSettings(&settings)
-	emitter := biz.NewEmitter()
+
+	filterChain, err := biz.NewFilterChain(&settings)
+	if err != nil {
+		slog.Fatal("create FilterChain error:%v", err)
+	}
+	emitter := biz.NewEmitter(filterChain)
 	plugins := biz.NewPlugins(&settings)
 	slog.Debug("plugins:%v", plugins)
 
