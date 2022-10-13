@@ -23,9 +23,9 @@ func init() {
                 grpcr --input-raw :8080 --output-grpc="grpc://xxx.com"
                `)
 
-	flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
-	flag.BoolVar(&settings.InputFileLoop, "input-file-loop", false, "")
-	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
+	//flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
+	//flag.BoolVar(&settings.InputFileLoop, "input-file-loop", false, "")
+	//flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
 	// #################### output ######################
 	flag.BoolVar(&settings.OutputStdout, "output-stdout", false,
 		"Just prints data to console")
@@ -35,10 +35,10 @@ func init() {
 			    # Redirect all incoming requests to xxx.com address
                 grpcr --input-raw :80 --output-grpc grpc://xxx.com")`)
 
-	flag.Var(&config.MultiStringOption{&settings.OutputFile},
-		"output-file",
-		`Write incoming requests to file: 
-		        grpcr --input-raw :80 --output-file ./requests.gor`)
+	//flag.Var(&config.MultiStringOption{&settings.OutputFile},
+	//	"output-file",
+	//	`Write incoming requests to file:
+	//	        grpcr --input-raw :80 --output-file ./requests.gor`)
 
 	flag.StringVar(&settings.Codec, "codec", "simple", "")
 }
