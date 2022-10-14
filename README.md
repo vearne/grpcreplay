@@ -41,6 +41,7 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
+目录必须已经存在且可以执行写入操作
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture"
 ```
