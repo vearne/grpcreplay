@@ -63,9 +63,9 @@ type AppSettings struct {
 	InputFileLoop      bool     `json:"input-file-loop"`
 	InputFileReadDepth int      `json:"input-file-read-depth"`
 	// --- output ---
-	OutputStdout bool     `json:"output-stdout"`
-	OutputGRPC   []string `json:"output-grpc"`
-	OutputFile   []string `json:"output-file"`
+	OutputStdout  bool     `json:"output-stdout"`
+	OutputGRPC    []string `json:"output-grpc"`
+	OutputFileDir []string `json:"output-file-directory"`
 	//OutputFileConfig plugin.FileOutputConfig
 
 	OutputKafkaConfig plugin.OutputKafkaConfig
