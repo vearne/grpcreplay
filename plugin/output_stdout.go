@@ -6,12 +6,12 @@ import (
 )
 
 type StdOutput struct {
-	codec string
+	codec protocol.Codec
 }
 
 func NewStdOutput(codec string) *StdOutput {
 	var o StdOutput
-	o.codec = codec
+	o.codec = protocol.GetCodec(codec)
 	return &o
 }
 
@@ -24,8 +24,7 @@ func (o *StdOutput) Write(msg *protocol.Message) (err error) {
 		data []byte
 	)
 
-	c := protocol.GetCodec(o.codec)
-	data, err = c.Marshal(msg)
+	data, err = o.codec.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -36,8 +35,5 @@ func (o *StdOutput) Write(msg *protocol.Message) (err error) {
 	}
 	// make it more readable
 	_, err = os.Stderr.Write([]byte{'\n', '\n'})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

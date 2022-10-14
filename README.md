@@ -41,6 +41,9 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture"
+```
 
 ## 调试
 设置日志级别
@@ -48,6 +51,10 @@ sudo -s
 ```
 export SIMPLE_LOG_LEVEL=debug
 ```
+
+## 依赖
+本项目使用了[google/gopacket](https://github.com/google/gopacket)，因而依赖`libpcap`
+
 ### 感谢
 受到 [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl) 
 和 [buger/goreplay](https://github.com/buger/goreplay)的启发
@@ -61,5 +68,8 @@ export SIMPLE_LOG_LEVEL=debug
 * [ ] 6)支持将GRPC请求写入文件
 * [ ] 7)支持将GRPC请求写入kafka
 * [ ] 8)支持将GRPC请求写入RocketMQ
-* [ ] 9)支持自定义filter
-* [ ] 10)支持TLS
+* [ ] 9)支持将GRPC请求写入文件
+* [ ] 10)支持将GRPC请求写入kafka
+* [ ] 11)支持将GRPC请求写入RocketMQ
+* [ ] 12)支持自定义filter
+* [ ] 13)支持TLS

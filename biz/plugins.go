@@ -30,6 +30,8 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 	//	plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
 	//}
 	//
+
+	// ----------output----------
 	if settings.OutputStdout {
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
@@ -40,6 +42,14 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 			slog.Fatal("OutputGRPC addr error:%v", err)
 		}
 		plugins.registerPlugin(plugin.NewGRPCOutput, addr)
+	}
+
+	for _, path := range settings.OutputFileDir {
+		err := plugin.IsValidDir(path)
+		if err != nil {
+			slog.Fatal("%v", err)
+		}
+		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path)
 	}
 
 	return plugins

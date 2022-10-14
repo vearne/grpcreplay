@@ -25,8 +25,8 @@ func init() {
 	// #################### input ######################
 	flag.Var(&config.MultiStringOption{&settings.InputRAW}, "input-raw",
 		`Capture traffic from given port (use RAW sockets and require *sudo* access):
-                # Capture traffic from 8080 port
-                grpcr --input-raw :8080 --output-grpc="grpc://xxx.com"
+                # Capture traffic from 80 port
+                grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001"
                `)
 
 	//flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
@@ -39,17 +39,19 @@ func init() {
 	flag.Var(&config.MultiStringOption{&settings.OutputGRPC}, "output-grpc",
 		`Forwards incoming requests to given grpc address.
 			    # Redirect all incoming requests to xxx.com address
-                grpcr --input-raw :80 --output-grpc grpc://xxx.com")`)
+                grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xxx.com")`)
 
-	//flag.Var(&config.MultiStringOption{&settings.OutputFile},
-	//	"output-file",
-	//	`Write incoming requests to file:
-	//	        grpcr --input-raw :80 --output-file ./requests.gor`)
+	flag.Var(&config.MultiStringOption{&settings.OutputFileDir},
+		"output-file-directory",
+		`Write incoming requests to file:
+		        grpcr --input-raw="0.0.0.0:80" --output-file-directory="/tmp/mycapture"`)
 
 	flag.StringVar(&settings.Codec, "codec", "simple", "")
 }
 
 func main() {
+	adjustLogLevel()
+
 	flag.Parse()
 	if version {
 		fmt.Println("service: grpcreplay")
@@ -96,6 +98,14 @@ func main() {
 func printSettings(settings *config.AppSettings) {
 	slog.Info("input-raw, %v", settings.InputRAW)
 	slog.Info("output-stdout, %v", settings.OutputStdout)
-	slog.Info("output-file, %v", settings.OutputFile)
+	slog.Info("output-file-directory, %v", settings.OutputFileDir)
 	slog.Info("output-grpc, %v", settings.OutputGRPC)
+}
+
+func adjustLogLevel() {
+	logLevel := os.Getenv("SIMPLE_LOG_LEVEL")
+	if len(logLevel) > 0 {
+		return
+	}
+	slog.SetLevel(slog.InfoLevel)
 }
