@@ -65,11 +65,11 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 3)抓取目标端口上的请求并解析
 * [x] 4)GRPC请求重放
 * [x] 5)支持将GRPC请求写入控制台
-* [ ] 6)支持将GRPC请求写入文件
+* [x] 6)支持将GRPC请求写入文件
 * [ ] 7)支持将GRPC请求写入kafka
 * [ ] 8)支持将GRPC请求写入RocketMQ
-* [ ] 9)支持将GRPC请求写入文件
-* [ ] 10)支持将GRPC请求写入kafka
-* [ ] 11)支持将GRPC请求写入RocketMQ
+* [ ] 9)支持从文件中读取GRPC请求
+* [ ] 10)支持从kafka中读取GRPC请求
+* [ ] 11)支持从RocketMQ中读取GRPC请求
 * [ ] 12)支持自定义filter
 * [ ] 13)支持TLS
