@@ -29,9 +29,12 @@ func init() {
                 grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001"
                `)
 
-	//flag.Var(&config.MultiStringOption{&settings.InputFile}, "input-file", "Read requests from file")
-	//flag.BoolVar(&settings.InputFileLoop, "input-file-loop", false, "")
-	//flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
+	// input-file-directory
+	flag.Var(&config.MultiStringOption{&settings.InputFileDir}, "input-file-directory",
+		`grpcr --input-file-directory="/tmp/mycapture" -output-grpc="grpc://xx.xx.xx.xx:35001“`)
+
+	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
+
 	// #################### output ######################
 	flag.BoolVar(&settings.OutputStdout, "output-stdout", false,
 		"Just prints data to console")
@@ -39,7 +42,7 @@ func init() {
 	flag.Var(&config.MultiStringOption{&settings.OutputGRPC}, "output-grpc",
 		`Forwards incoming requests to given grpc address.
 			    # Redirect all incoming requests to xxx.com address
-                grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xxx.com")`)
+                grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001")`)
 
 	flag.Var(&config.MultiStringOption{&settings.OutputFileDir},
 		"output-file-directory",
@@ -97,6 +100,7 @@ func main() {
 
 func printSettings(settings *config.AppSettings) {
 	slog.Info("input-raw, %v", settings.InputRAW)
+	slog.Info("input-file-directory, %v", settings.InputFileDir)
 	slog.Info("output-stdout, %v", settings.OutputStdout)
 	slog.Info("output-file-directory, %v", settings.OutputFileDir)
 	slog.Info("output-grpc, %v", settings.OutputGRPC)

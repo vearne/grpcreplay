@@ -45,6 +45,9 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture"
 ```
+```
+./grpcr --input-file-directory="/tmp/mycapture" --output-stdout
+```
 
 ## 调试
 设置日志级别

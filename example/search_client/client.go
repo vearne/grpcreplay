@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
-	"time"
+	//"time"
 
 	pb "github.com/vearne/grpcreplay/example/search_proto"
 )
@@ -51,6 +51,6 @@ func main() {
 
 		bt, _ := json.Marshal(resp)
 		log.Println("resp:", string(bt))
-		time.Sleep(10 * time.Second)
+		//time.Sleep(10 * time.Second)
 	}
 }

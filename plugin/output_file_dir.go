@@ -64,6 +64,6 @@ func (o *FileDirOutput) Write(msg *protocol.Message) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = o.logger.Write([]byte{'\n'})
+	_, err = o.logger.Write([]byte{'\n', '\n'})
 	return err
 }

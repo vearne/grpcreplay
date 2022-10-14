@@ -26,10 +26,13 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewRAWInput, item)
 	}
 
-	//for _, options := range settings.InputFile {
-	//	plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
-	//}
-	//
+	for _, path := range settings.InputFileDir {
+		err := plugin.IsValidDir(path)
+		if err != nil {
+			slog.Fatal("%v", err)
+		}
+		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path, settings.InputFileReadDepth)
+	}
 
 	// ----------output----------
 	if settings.OutputStdout {
@@ -76,7 +79,6 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 	vo := []reflect.Value{}
 	for _, oi := range options {
 		vo = append(vo, reflect.ValueOf(oi))
-		slog.Debug("registerPlugin-%q", oi)
 	}
 
 	// Calling our constructor with list of given options

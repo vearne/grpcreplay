@@ -145,6 +145,9 @@ github.com/rcrowley/go-metrics
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/net
+# github.com/vearne/gtimer v0.0.0-20210610055519-27f41655a210
+## explicit; go 1.16
+github.com/vearne/gtimer
 # github.com/vearne/simplelog v0.0.1
 ## explicit; go 1.18
 github.com/vearne/simplelog
