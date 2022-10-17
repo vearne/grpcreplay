@@ -30,11 +30,11 @@ func main() {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	client := pb.NewSearchServiceClient(conn)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000000; i++ {
 		resp, err := client.Search(ctx,
 			&pb.SearchRequest{
 				StaffName: "zhangsan",
-				Age:       uint32(i % 100),
+				Age:       uint32(i),
 				Gender:    true,
 			},
 		)

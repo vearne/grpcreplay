@@ -8,9 +8,10 @@ type Protocol interface {
 // Message represents data across plugins
 type Message struct {
 	Meta struct {
-		Version   int    `json:"version"`
-		UUID      string `json:"uuid"`
-		Timestamp int64  `json:"timestamp"`
+		Version int    `json:"version"`
+		UUID    string `json:"uuid"`
+		// Nanosecond
+		Timestamp int64 `json:"timestamp"`
 	}
 	Data struct {
 		Headers map[string]string `json:"headers"`

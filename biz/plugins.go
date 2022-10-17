@@ -26,13 +26,18 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewRAWInput, item)
 	}
 
-	//for _, options := range settings.InputFile {
-	//	plugins.registerPlugin(plugin.NewFileInput, options, settings.InputFileLoop, settings.InputFileReadDepth)
-	//}
-	//
+	for _, path := range settings.InputFileDir {
+		err := plugin.IsValidDir(path)
+		if err != nil {
+			slog.Fatal("%v", err)
+		}
+		slog.Debug("NewFileDirInput, path:%v", path)
+		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path, settings.InputFileReadDepth)
+	}
 
 	// ----------output----------
 	if settings.OutputStdout {
+		slog.Debug("NewStdOutput")
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
 
@@ -49,7 +54,12 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if err != nil {
 			slog.Fatal("%v", err)
 		}
-		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path)
+		cf := &plugin.FileDirOutputConfig{
+			MaxSize:    settings.OutputFileMaxSize,
+			MaxBackups: settings.OutputFileMaxBackups,
+			MaxAge:     settings.OutputFileMaxAge,
+		}
+		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path, cf)
 	}
 
 	return plugins
@@ -76,7 +86,6 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 	vo := []reflect.Value{}
 	for _, oi := range options {
 		vo = append(vo, reflect.ValueOf(oi))
-		slog.Debug("registerPlugin-%q", oi)
 	}
 
 	// Calling our constructor with list of given options
