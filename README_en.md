@@ -1,9 +1,6 @@
 # grpcreplay
 GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC)，并将其用于灰度测试、压测或者流量分析。
 
-
-* [English README](https://github.com/vearne/grpcreplay/blob/main/README_en.md)
-
 ## 特性
 * 支持过滤器
 * 可以解析Protobuf,需要grpc反射,参考[GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
