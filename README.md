@@ -72,7 +72,7 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 6)支持将GRPC请求写入文件
 * [ ] 7)支持将GRPC请求写入kafka
 * [ ] 8)支持将GRPC请求写入RocketMQ
-* [ ] 9)支持从文件中读取GRPC请求
+* [x] 9)支持从文件中读取GRPC请求
 * [ ] 10)支持从kafka中读取GRPC请求
 * [ ] 11)支持从RocketMQ中读取GRPC请求
 * [ ] 12)支持自定义filter
