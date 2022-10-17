@@ -281,6 +281,8 @@ github.com/tklauser/numcpus v0.4.0/go.mod h1:1+UI3pD8NW14VMwdgJNJ1ESk2UnwhAnz5hM
 github.com/urfave/cli/v2 v2.3.0/go.mod h1:LJmUH05zAU44vOAcrfzZQKsZbVcdbOG8rtL3/XcUArI=
 github.com/vearne/gtimer v0.0.0-20210610055519-27f41655a210 h1:nwGG/tmMAn+/fuFEGzNW8DRyVm0sHUmUhvWH7B3BaOM=
 github.com/vearne/gtimer v0.0.0-20210610055519-27f41655a210/go.mod h1:bX8Y/E5MC+xm8s31vSVN/CkS/XISlwWwWeHIws9ejMI=
+github.com/vearne/gtimer v0.0.0-20221017092933-916521a2b438 h1:4bFGVH5IQzx4zEYqdvBr5E0f+igpb+3faND7uQ8c8OE=
+github.com/vearne/gtimer v0.0.0-20221017092933-916521a2b438/go.mod h1:bX8Y/E5MC+xm8s31vSVN/CkS/XISlwWwWeHIws9ejMI=
 github.com/vearne/simplelog v0.0.1 h1:N/nQ1cLpJIVIRfWn4Ccv2nhETxq1lMC1u79yy714dUg=
 github.com/vearne/simplelog v0.0.1/go.mod h1:W7Ip7PHWs8c0X+7b8hSj9zH7WxKB3oQ1pkr3tAtxqSo=
 github.com/vishvananda/netlink v1.1.0/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=

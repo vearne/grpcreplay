@@ -14,7 +14,7 @@ type SuperTimer struct {
 	WorkerCount int
 	ExitChan    chan int
 	PQ          PriorityQueue
-	RunningFlag bool
+	RunningFlag *AtomicBool
 }
 
 func NewSuperTimer(workCount int) *SuperTimer {
@@ -25,7 +25,7 @@ func NewSuperTimer(workCount int) *SuperTimer {
 	timer.WorkerCount = workCount
 	timer.Wgp = &sync.WaitGroup{}
 	timer.ExitChan = make(chan int, 100)
-	timer.RunningFlag = true
+	timer.RunningFlag = NewAtomicBool(true)
 
 	for i := 0; i < timer.WorkerCount; i++ {
 		go timer.Consume()
@@ -36,7 +36,7 @@ func NewSuperTimer(workCount int) *SuperTimer {
 func (timer *SuperTimer) Consume() {
 	timer.Wgp.Add(1)
 	defer timer.Wgp.Done()
-	for timer.RunningFlag {
+	for timer.RunningFlag.IsTrue() {
 		select {
 		case <-timer.ExitChan:
 			break
@@ -91,7 +91,7 @@ func (st *SuperTimer) Stop() {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 	st.PQ.Clear()
-	st.RunningFlag = false
+	st.RunningFlag.Set(false)
 	close(st.ExitChan)
 	st.UniTimer.Stop()
 }
