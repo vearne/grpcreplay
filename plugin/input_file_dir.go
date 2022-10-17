@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,22 +47,28 @@ func (in *FileDirInput) init() {
 		slog.Fatal("FileDirInput-scan directory:%v", err)
 	}
 	in.reader = NewReinforcedReader(files, in.codec)
-	msgList := make([]*protocol.Message, in.readDepth)
+	msgList := make([]*protocol.Message, 0, in.readDepth)
 
 	slog.Debug("readDepth:%v", in.readDepth)
 	for i := 0; i < in.readDepth; i++ {
-		msg, err := in.reader.Read()
+		msg, err := in.reader.ReadMessage()
 		if err != nil {
-			slog.Fatal("ReinforcedReader read:%v", err)
+			if err == io.EOF {
+				slog.Info("All files are read")
+				break
+			} else {
+				slog.Fatal("ReinforcedReader read:%v", err)
+			}
 		}
-		msgList[i] = msg
+		msgList = append(msgList, msg)
 		if i == 0 {
 			in.benchmarkTimestamp = msg.Meta.Timestamp
 		} else if msg.Meta.Timestamp < in.benchmarkTimestamp {
 			in.benchmarkTimestamp = msg.Meta.Timestamp
 		}
 	}
-	slog.Info("benchmarkTimestamp:%v", in.benchmarkTimestamp)
+	slog.Info("benchmarkTimestamp:%v, len(msgList):%v",
+		in.benchmarkTimestamp, len(msgList))
 	for i := 0; i < len(msgList); i++ {
 		msg := msgList[i]
 		addTaskToTimer(in, msg)
@@ -70,7 +77,7 @@ func (in *FileDirInput) init() {
 
 func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
 	d := time.Duration(msg.Meta.Timestamp - in.benchmarkTimestamp)
-	slog.Debug("delay:%v", d)
+	slog.Debug("delay:%v", time.Now().Add(d))
 	task := gtimer.NewDelayedItemFunc(
 		time.Now().Add(d),
 		msg,
@@ -78,7 +85,7 @@ func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
 			message := param.(*protocol.Message)
 			in.msgChan <- message
 			// Keep the total number of messages in the priority queue constant
-			newMessage, err := in.reader.Read()
+			newMessage, err := in.reader.ReadMessage()
 			if err != nil {
 				if err == io.EOF {
 					slog.Info("All files are read")
@@ -86,24 +93,31 @@ func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
 					slog.Error("ReinforcedReader read:%v", err)
 				}
 				return
+			} else {
+				addTaskToTimer(in, newMessage)
 			}
-			addTaskToTimer(in, newMessage)
 		},
 	)
 	in.timer.Add(task)
 }
 
-func (in *FileDirInput) Read() (*protocol.Message, error) {
-	msg := <-in.msgChan
+func (in *FileDirInput) Read() (msg *protocol.Message, err error) {
+	msg = <-in.msgChan
 	return msg, nil
 }
 
+func (in *FileDirInput) Close() error {
+	return in.reader.Close()
+}
+
 type ReinforcedReader struct {
+	sync.Mutex
 	codec     protocol.Codec
 	file      *os.File
 	reader    *bufio.Reader
 	filepaths []string
 	index     int
+	EOF       bool
 }
 
 func NewReinforcedReader(filepaths []string, codec protocol.Codec) *ReinforcedReader {
@@ -150,7 +164,19 @@ func createReader(path string) (file *os.File, reader *bufio.Reader, err error) 
 	return
 }
 
-func (r *ReinforcedReader) Read() (*protocol.Message, error) {
+func (r *ReinforcedReader) Close() error {
+	return r.file.Close()
+}
+
+func (r *ReinforcedReader) ReadMessage() (*protocol.Message, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.EOF {
+		return nil, io.EOF
+	}
+
+	slog.Debug("[start]ReinforcedReader.ReadMessage()")
 	var line []byte
 	var err error
 
@@ -163,6 +189,11 @@ func (r *ReinforcedReader) Read() (*protocol.Message, error) {
 		line, err = r.reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF && r.index+1 < len(r.filepaths) {
+				// close old file
+				err = r.file.Close()
+				if err != nil {
+					slog.Fatal("read file [%v]:%v", r.filepaths[r.index], err)
+				}
 				// normal circumstances, try next file
 				r.index++
 				r.file, r.reader, err = createReader(r.filepaths[r.index])
@@ -171,6 +202,8 @@ func (r *ReinforcedReader) Read() (*protocol.Message, error) {
 				}
 				first = true
 			} else {
+				r.EOF = true
+				slog.Debug("[end]ReinforcedReader.ReadMessage()")
 				return nil, err
 			}
 		}
@@ -193,6 +226,7 @@ func (r *ReinforcedReader) Read() (*protocol.Message, error) {
 		return nil, err
 	}
 
+	slog.Debug("[end]ReinforcedReader.ReadMessage()")
 	return &msg, nil
 }
 

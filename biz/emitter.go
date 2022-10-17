@@ -1,7 +1,6 @@
 package biz
 
 import (
-	"fmt"
 	"github.com/vearne/grpcreplay/filter"
 	slog "github.com/vearne/simplelog"
 	"io"
@@ -55,7 +54,6 @@ func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		msg, _ := src.Read()
 		msg, ok := e.filterChain.Filter(msg)
-		fmt.Println("---msg---")
 		if ok {
 			for _, dst := range writers {
 				if err := dst.Write(msg); err != nil {

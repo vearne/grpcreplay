@@ -31,11 +31,13 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if err != nil {
 			slog.Fatal("%v", err)
 		}
+		slog.Debug("NewFileDirInput, path:%v", path)
 		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path, settings.InputFileReadDepth)
 	}
 
 	// ----------output----------
 	if settings.OutputStdout {
+		slog.Debug("NewStdOutput")
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
 
