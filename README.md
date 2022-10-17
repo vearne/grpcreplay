@@ -24,7 +24,7 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
-5. 需要macOS上需要sudo
+5. macOS上需要sudo
 ```
 sudo -s
 ```
@@ -75,7 +75,7 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 6)支持将GRPC请求写入文件
 * [ ] 7)支持将GRPC请求写入kafka
 * [ ] 8)支持将GRPC请求写入RocketMQ
-* [ ] 9)支持从文件中读取GRPC请求
+* [x] 9)支持从文件中读取GRPC请求
 * [ ] 10)支持从kafka中读取GRPC请求
 * [ ] 11)支持从RocketMQ中读取GRPC请求
 * [ ] 12)支持自定义filter

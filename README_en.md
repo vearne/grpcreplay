@@ -1,32 +1,34 @@
 # grpcreplay
-GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC)，并将其用于灰度测试、压测或者流量分析。
+GrpcReplay is a network monitoring tool that can record your grpc traffic (Unary RPC) 
+and use it for grayscale testing, stress testing or traffic analysis.
 
-## 特性
-* 支持过滤器
-* 可以解析Protobuf,需要grpc反射,参考[GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
-* 支持多种input和output
-* 支持多种gRPC请求的编码形式(可以方便的扩展)
-* 支持gRPC请求重放
+## Feature
+* support filter
+* support to parse Protobuf, requires grpc reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
+* Supports various input and output plugins
+* Supports multiple encoding forms of gRPC requests (can be easily extended)
+* Support gRPC request replay
 
-## 原理
-1. 由于gRPC使用的Hpack来压缩头部，为了解决这个问题，使用了类似于tcpkill的机制，杀死旧连接，迫使client端发起新连接
-2. 使用gRPC的反射机制来获取Message的定义，以便能够解析gRPC请求
+## Principle
+1. Since gRPC uses Hpack to compress the header, in order to solve this problem, a mechanism similar to tcpkill 
+is used to kill the old connection and force the client to initiate a new connection.
+2. Use gRPC's reflection mechanism to get the definition of Message so that gRPC requests can be parsed.
 
-## 架构图
+## Architecture
 ![architecture](https://github.com/vearne/grpcreplay/raw/main/img/grpc.svg)
 
-## 注意（请务必阅读一下）
-1. 暂时只支持h2c, 不支持h2
-2. 目前gRPC的编码只支持Protobuf且不支持使用Compressor。 
-参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
-3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
-4. 只支持Unary RPC，不支持Streaming RPC
-5. 需要macOS上需要sudo
+## Notice
+1. Temporarily only supports h2c, not h2
+2. The current gRPC encoding only supports Protobuf and does not support the use of Compressor.
+   refer to [encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
+3. The gRPC server needs to enable reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
+4. Only supports Unary RPC, not Streaming RPC
+5. Root permissions required on macOS
 ```
 sudo -s
 ```
 
-## 用法
+## Usage
 ```
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout
 ```
@@ -37,11 +39,11 @@ sudo -s
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
-指定codec   可选值: "simple" |  "json"
+Set the value of codec, optional value: "simple" |  "json"
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
-目录必须已经存在且可以执行写入操作
+The directory must already exist and be available for writing
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
 ```
@@ -49,31 +51,31 @@ sudo -s
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
-## 调试
-设置日志级别
-可选值: debug | info | warn | error
+## Debug
+Set the log level
+Optional value: debug | info | warn | error
 ```
 export SIMPLE_LOG_LEVEL=debug
 ```
 
-## 依赖
-本项目使用了[google/gopacket](https://github.com/google/gopacket)，因而依赖`libpcap`
+## Dependency
+This project uses [google/gopacket](https://github.com/google/gopacket) and therefore depends on `libpcap`
 
-### 感谢
-受到 [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl) 
-和 [buger/goreplay](https://github.com/buger/goreplay)的启发
+### Thanks
+inspired by [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl) 
+and [buger/goreplay](https://github.com/buger/goreplay)
 
 ## TODO
-* [x] 1)发现与目标端口关联的所有连接
-* [x] 2)使用旁路阻断逐个结束这些连接
-* [x] 3)抓取目标端口上的请求并解析
-* [x] 4)GRPC请求重放
-* [x] 5)支持将GRPC请求写入控制台
-* [x] 6)支持将GRPC请求写入文件
-* [ ] 7)支持将GRPC请求写入kafka
-* [ ] 8)支持将GRPC请求写入RocketMQ
-* [ ] 9)支持从文件中读取GRPC请求
-* [ ] 10)支持从kafka中读取GRPC请求
-* [ ] 11)支持从RocketMQ中读取GRPC请求
-* [ ] 12)支持自定义filter
-* [ ] 13)支持TLS
+* [x] 1)Discover all connections associated with the target port
+* [x] 2)Use bypass blocking to end these connections one by one
+* [x] 3)Grab the request on the target port and parse it
+* [x] 4)GRPC request replay
+* [x] 5)Supports writing GRPC requests to the console
+* [x] 6)Support for writing GRPC requests to files
+* [ ] 7)Support for writing GRPC requests to kafka
+* [ ] 8)Support for writing GRPC requests to RocketMQ
+* [x] 9)Support for reading GRPC requests from files
+* [ ] 10)Support reading GRPC requests from kafka
+* [ ] 11)Support for reading GRPC requests from RocketMQ
+* [ ] 12)Support custom filter
+* [ ] 13)support TLS
