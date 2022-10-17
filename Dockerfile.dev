@@ -1,0 +1,10 @@
+FROM golang:1.18.5
+
+RUN apt-get update && apt-get install vim-common libpcap-dev -y
+
+
+WORKDIR /go/src/github.com/vearne/grpcreplay/
+ADD . /go/src/github.com/vearne/grpcreplay/
+
+# install dependencies
+RUN go get
