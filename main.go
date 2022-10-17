@@ -49,6 +49,16 @@ func init() {
 		`Write incoming requests to file:
 		        grpcr --input-raw="0.0.0.0:80" --output-file-directory="/tmp/mycapture"`)
 
+	flag.IntVar(&settings.OutputFileMaxSize, "output-file-max-size", 500,
+		"MaxSize is the maximum size in megabytes of the log file before it gets rotated.")
+
+	flag.IntVar(&settings.OutputFileMaxBackups, "output-file-max-backups", 10,
+		"MaxBackups is the maximum number of old log files to retain.")
+
+	flag.IntVar(&settings.OutputFileMaxAge, "output-file-max-age", 30,
+		`MaxAge is the maximum number of days to retain old log files 
+				based on the timestamp encoded in their filename`)
+
 	flag.StringVar(&settings.Codec, "codec", "simple", "")
 }
 

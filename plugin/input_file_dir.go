@@ -54,7 +54,6 @@ func (in *FileDirInput) init() {
 		msg, err := in.reader.ReadMessage()
 		if err != nil {
 			if err == io.EOF {
-				slog.Info("All files are read")
 				break
 			} else {
 				slog.Fatal("ReinforcedReader read:%v", err)
@@ -88,7 +87,7 @@ func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
 			newMessage, err := in.reader.ReadMessage()
 			if err != nil {
 				if err == io.EOF {
-					slog.Info("All files are read")
+					slog.Debug("All files are read")
 				} else {
 					slog.Error("ReinforcedReader read:%v", err)
 				}
@@ -168,6 +167,28 @@ func (r *ReinforcedReader) Close() error {
 	return r.file.Close()
 }
 
+func (r *ReinforcedReader) NextFile() error {
+	if r.index+1 < len(r.filepaths) {
+		var err error
+		// close old file
+		err = r.file.Close()
+		if err != nil {
+			return err
+		}
+		// normal circumstances, try next file
+		r.index++
+		slog.Info("switch to file:%v", r.filepaths[r.index])
+		r.file, r.reader, err = createReader(r.filepaths[r.index])
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	r.EOF = true
+	slog.Info("All files are read")
+	return io.EOF
+}
+
 func (r *ReinforcedReader) ReadMessage() (*protocol.Message, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -188,27 +209,20 @@ func (r *ReinforcedReader) ReadMessage() (*protocol.Message, error) {
 		// line contains delimiter
 		line, err = r.reader.ReadBytes('\n')
 		if err != nil {
-			if err == io.EOF && r.index+1 < len(r.filepaths) {
-				// close old file
-				err = r.file.Close()
-				if err != nil {
-					slog.Fatal("read file [%v]:%v", r.filepaths[r.index], err)
+			if err == io.EOF {
+				// switch to next file
+				err = r.NextFile()
+				if err == nil {
+					// 完成了切换
+					first = true
+					continue
+				} else {
+					slog.Debug("[end]ReinforcedReader.ReadMessage()")
+					return nil, err
 				}
-				// normal circumstances, try next file
-				r.index++
-				r.file, r.reader, err = createReader(r.filepaths[r.index])
-				if err != nil {
-					slog.Fatal("read file [%v]:%v", r.filepaths[r.index], err)
-				}
-				first = true
-			} else {
-				r.EOF = true
-				slog.Debug("[end]ReinforcedReader.ReadMessage()")
-				return nil, err
 			}
 		}
 
-		slog.Debug("len(line):%v", len(line))
 		first = false
 		if len(line) > 1 {
 			bf.Write(line)
@@ -216,11 +230,12 @@ func (r *ReinforcedReader) ReadMessage() (*protocol.Message, error) {
 	}
 
 	data := bf.Bytes()
+	slog.Debug("error:%v, file:%v, filepaths:%v, len(data):%v, content:%v",
+		err, r.filepaths[r.index], r.filepaths, len(data), string(data))
 	data = data[0 : len(data)-1]
 
 	var msg protocol.Message
 
-	slog.Debug("codec.Unmarshal, len(data):%v", len(data))
 	err = r.codec.Unmarshal(data, &msg)
 	if err != nil {
 		return nil, err

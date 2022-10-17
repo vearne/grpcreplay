@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
-	//"time"
+	"time"
 
 	pb "github.com/vearne/grpcreplay/example/search_proto"
 )
@@ -30,11 +30,11 @@ func main() {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	client := pb.NewSearchServiceClient(conn)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000000; i++ {
 		resp, err := client.Search(ctx,
 			&pb.SearchRequest{
 				StaffName: "zhangsan",
-				Age:       uint32(i % 100),
+				Age:       uint32(i),
 				Gender:    true,
 			},
 		)
@@ -51,6 +51,6 @@ func main() {
 
 		bt, _ := json.Marshal(resp)
 		log.Println("resp:", string(bt))
-		//time.Sleep(10 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }

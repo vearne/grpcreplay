@@ -63,9 +63,18 @@ type AppSettings struct {
 	InputFileDir       []string `json:"input-file-directory"`
 	InputFileReadDepth int      `json:"input-file-read-depth"`
 	// --- output ---
-	OutputStdout  bool     `json:"output-stdout"`
-	OutputGRPC    []string `json:"output-grpc"`
+	OutputStdout bool     `json:"output-stdout"`
+	OutputGRPC   []string `json:"output-grpc"`
+
+	// --- outputfile ---
 	OutputFileDir []string `json:"output-file-directory"`
+	// MaxSize is the maximum size in megabytes of the log file before it gets rotated.
+	OutputFileMaxSize int `json:"output-file-max-size"`
+	// MaxBackups is the maximum number of old log files to retain.
+	OutputFileMaxBackups int `json:"output-file-max-backups"`
+	// MaxAge is the maximum number of days to retain old log files based on the
+	// timestamp encoded in their filename.
+	OutputFileMaxAge int `json:"output-file-max-age"`
 
 	OutputKafkaConfig plugin.OutputKafkaConfig
 	// --- other ---

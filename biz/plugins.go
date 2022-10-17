@@ -54,7 +54,12 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if err != nil {
 			slog.Fatal("%v", err)
 		}
-		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path)
+		cf := &plugin.FileDirOutputConfig{
+			MaxSize:    settings.OutputFileMaxSize,
+			MaxBackups: settings.OutputFileMaxBackups,
+			MaxAge:     settings.OutputFileMaxAge,
+		}
+		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path, cf)
 	}
 
 	return plugins
