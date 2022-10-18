@@ -79,6 +79,26 @@ sudo -s
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
+### 捕获的请求形如
+```
+{
+	"headers": {
+		":authority": "localhost:35001",
+		":method": "POST",
+		":path": "/SearchService/Search",
+		":scheme": "http",
+		"content-type": "application/grpc",
+		"te": "trailers",
+		"testkey1": "testvalue1",
+		"testkey2": "testvalue2",
+		"user-agent": "grpc-go/1.48.0"
+	},
+	"method": "/SearchService/Search",
+	"request": "{\"staffName\":\"zhangsan\",\"gender\":true,\"age\":405084}"
+}
+```
+
+
 ## 调试
 设置日志级别
 可选值: debug | info | warn | error
