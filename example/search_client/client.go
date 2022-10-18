@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	_ "google.golang.org/grpc/encoding/gzip" // Registration of gzip Compressor will be completed
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
@@ -16,7 +17,10 @@ import (
 const PORT = "35001"
 
 func main() {
-	conn, err := grpc.Dial(":"+PORT, grpc.WithInsecure())
+	conn, err := grpc.Dial(":"+PORT,
+		grpc.WithInsecure(),
+		//grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
+	)
 	if err != nil {
 		log.Fatalf("grpc.Dial err: %v", err)
 	}

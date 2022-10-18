@@ -40,7 +40,7 @@ is used to kill the old connection and force the client to initiate a new connec
 
 ## Notice
 1. Temporarily only supports h2c, not h2
-2. The current gRPC encoding only supports Protobuf and does not support the use of Compressor.
+2. The current gRPC encoding only supports Protobuf.
    refer to [encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. The gRPC server needs to enable reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. Only supports Unary RPC, not Streaming RPC

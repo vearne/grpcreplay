@@ -41,7 +41,7 @@ make build
 
 ## 注意（请务必阅读一下）
 1. 暂时只支持h2c, 不支持h2
-2. 目前gRPC的编码只支持Protobuf且不支持使用Compressor。 
+2. 目前gRPC的编码只支持Protobuf。 
 参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
