@@ -5,6 +5,7 @@ import (
 )
 
 // OutputKafkaConfig is the representation of kfka output configuration
+// nolint: unused
 type OutputKafkaConfig struct {
 	producer   sarama.AsyncProducer
 	Host       string `json:"output-kafka-host"`

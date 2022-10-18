@@ -131,6 +131,9 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	var i RAWInput
 	i.connSet = http2.NewConnSet()
 	i.port, err = strconv.Atoi(port)
+	if err != nil {
+		slog.Fatal("RAWInput, port error:%v", port)
+	}
 	i.ipSet = util.NewStringSet()
 	i.outputChan = make(chan *http2.NetPkg, 100)
 
