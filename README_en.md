@@ -9,6 +9,25 @@ and use it for grayscale testing, stress testing or traffic analysis.
 * Supports multiple encoding forms of gRPC requests (can be easily extended)
 * Support gRPC request replay
 
+## Compile
+### install libpcap
+Ubuntu
+```
+apt-get install -y libpcap-dev
+```
+Centos
+```
+yum install -y libpcap-devel
+```
+Mac
+```
+brew install libpcap
+```
+### compile
+```
+make build
+```
+
 ## Principle
 1. Since gRPC uses Hpack to compress the header, in order to solve this problem, a mechanism similar to tcpkill 
 is used to kill the old connection and force the client to initiate a new connection.
