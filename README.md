@@ -1,4 +1,6 @@
 # grpcreplay
+[![golang-ci](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml/badge.svg)](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml)
+
 GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC)，并将其用于灰度测试、压测或者流量分析。
 
 
@@ -39,7 +41,7 @@ make build
 
 ## 注意（请务必阅读一下）
 1. 暂时只支持h2c, 不支持h2
-2. 目前gRPC的编码只支持Protobuf且不支持使用Compressor。 
+2. 目前gRPC的编码只支持Protobuf。 
 参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
@@ -49,12 +51,15 @@ sudo -s
 ```
 
 ## 用法
+捕获"0.0.0.0:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout
 ```
+捕获"127.0.0.1:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
 ```
+捕获"127.0.0.1:35001"上的gRPC请求，发往"127.0.0.1:35002"， 同时打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
@@ -63,10 +68,13 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
-目录必须已经存在且可以执行写入操作
+
+捕获"127.0.0.1:35001"上的gRPC请求，并记录在某个文件夹中, 文件按照最大500MB的限制进行切分，并有压缩。 
+注意: 目录必须已经存在且可以执行写入操作
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
 ```
+从某个文件夹中读取gRPC请求，进行重放。gRPC请求会被发往"127.0.0.1:35002"，同时打印在控制台中
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```

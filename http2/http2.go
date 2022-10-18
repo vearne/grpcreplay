@@ -279,6 +279,10 @@ func ParseFrameHeader(f *FrameBase) (*FrameHeader, error) {
 func ParseFrameData(f *FrameBase) (*FrameData, error) {
 	var fh FrameData
 	var err error
+
+	// basic info
+	fh.fb = f
+
 	fh.EndStream = f.Flags&0x1 != 0
 	fh.Padded = f.Flags&0x8 != 0
 
@@ -300,6 +304,9 @@ func ParseFrameData(f *FrameBase) (*FrameData, error) {
 
 func ParseFrameContinuation(f *FrameBase) (*FrameContinuation, error) {
 	var fc FrameContinuation
+	// basic info
+	fc.fb = f
+
 	fc.EndHeader = f.Flags&0x4 != 0
 
 	fc.HeaderBlockFragment = f.Payload

@@ -51,13 +51,17 @@ func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 	tcpheader.Checksum = 0
 
 	// 只是为了计算Checksum
+	// nolint: errcheck
 	binary.Write(&buffer, binary.BigEndian, psdheader)
+	// nolint: errcheck
 	binary.Write(&buffer, binary.BigEndian, tcpheader)
 	tcpheader.Checksum = CheckSum(buffer.Bytes())
 	buffer.Reset()
 
 	/*接下来清空buffer，填充实际要发送的部分*/
+	//nolint:all
 	binary.Write(&buffer, binary.BigEndian, tcpheader)
+	//nolint:all
 	binary.Write(&buffer, binary.BigEndian, msg)
 
 	/*下面的操作都是raw socket操作，大家都看得懂*/
@@ -70,6 +74,7 @@ func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 		slog.Error("Socket() error: %v", err)
 		return
 	}
+	// nolint: errcheck
 	defer syscall.Shutdown(sockfd, syscall.SHUT_RDWR)
 	addr.Addr = IPtoByte(dstAddr)
 	addr.Port = int(dstPort)

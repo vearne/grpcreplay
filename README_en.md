@@ -1,4 +1,6 @@
 # grpcreplay
+[![golang-ci](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml/badge.svg)](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml)
+
 GrpcReplay is a network monitoring tool that can record your grpc traffic (Unary RPC) 
 and use it for grayscale testing, stress testing or traffic analysis.
 
@@ -38,7 +40,7 @@ is used to kill the old connection and force the client to initiate a new connec
 
 ## Notice
 1. Temporarily only supports h2c, not h2
-2. The current gRPC encoding only supports Protobuf and does not support the use of Compressor.
+2. The current gRPC encoding only supports Protobuf.
    refer to [encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. The gRPC server needs to enable reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. Only supports Unary RPC, not Streaming RPC
@@ -48,12 +50,15 @@ sudo -s
 ```
 
 ## Usage
+Capture gRPC request on "0.0.0.0:35001" and print in console
 ```
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout
 ```
+Capture gRPC request on "127.0.0.1:35001" and print in console
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
 ```
+Capture the gRPC request on "127.0.0.1:35001", send it to "127.0.0.1:35002", and print it in the console
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
@@ -62,10 +67,14 @@ Set the value of codec, optional value: "simple" |  "json"
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
-The directory must already exist and be available for writing
+Capture the gRPC request on "127.0.0.1:35001" and record it in a folder. 
+The file is divided according to the maximum limit of 500MB and compressed.
+Note: The directory must already exist and be writeable.
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
 ```
+Read gRPC requests from a folder and replay them. gRPC requests will be sent to "127.0.0.1:35002" 
+and printed in the console
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```

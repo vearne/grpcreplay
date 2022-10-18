@@ -1,8 +1,12 @@
 package http2
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"github.com/fullstorydev/grpcurl"
+	"io"
+
 	//"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -122,22 +126,31 @@ func (p *Processor) processFrameData(f *FrameBase) {
 
 	// 把protobuf转换为JSON字符串
 	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
-		codecType := getCodecType(stream.Headers)
 		msg, _ := fd.ParseGRPCMessage()
+		// 开启压缩了
+		if msg.PayloadFormat == compressionMade {
+			// only support gzip
+			gzipReader, err := gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
+			if err != nil {
+				slog.Error("processFrameData, gunzip error:%v", err)
+				return
+			}
+			msg.EncodedMessage, err = io.ReadAll(gzipReader)
+			if err != nil {
+				slog.Error("processFrameData, gunzip error:%v", err)
+				return
+			}
+		}
+
+		codecType := getCodecType(stream.Headers)
 		if codecType == CodecProtobuf {
-			// 注意:暂时只处理 1. 未开启压缩 2.编码方式为Protobuf的情况
+			// 注意:暂时只处理 编码方式为Protobuf的情况
 			pbMsg := p.Finder.FindMethodInput(stream.Method)
 
 			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
 			if err != nil {
 				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
 			}
-
-			//pbMsg.ProtoReflect().Range(func(descriptor pref.FieldDescriptor, value pref.Value) bool {
-			//	fmt.Printf("field: %v, jsonName:%v, value: %v \n",
-			//		descriptor.Name(), descriptor.JSONName(), value)
-			//	return true
-			//})
 
 			stream.Request, err = protojson.Marshal(pbMsg)
 			if err != nil {
@@ -323,6 +336,9 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	fd := inputType.GetFile().AsFileDescriptorProto()
 	// get FileDescriptor
 	pf, err := protodesc.NewFile(fd, nil)
+	if err != nil {
+		slog.Fatal("protodesc.NewFile, svcAndMethod:%v", svcAndMethod)
+	}
 	reqMsgDescriptor := pf.Messages().ByName(pref.Name(inputType.GetName()))
 	msg := dynamicpb.NewMessage(reqMsgDescriptor)
 

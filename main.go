@@ -23,14 +23,14 @@ func init() {
 	flag.DurationVar(&settings.ExitAfter, "exit-after", 0, "exit after specified duration")
 
 	// #################### input ######################
-	flag.Var(&config.MultiStringOption{&settings.InputRAW}, "input-raw",
+	flag.Var(&config.MultiStringOption{Params: &settings.InputRAW}, "input-raw",
 		`Capture traffic from given port (use RAW sockets and require *sudo* access):
                 # Capture traffic from 80 port
                 grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001"
                `)
 
 	// input-file-directory
-	flag.Var(&config.MultiStringOption{&settings.InputFileDir}, "input-file-directory",
+	flag.Var(&config.MultiStringOption{Params: &settings.InputFileDir}, "input-file-directory",
 		`grpcr --input-file-directory="/tmp/mycapture" -output-grpc="grpc://xx.xx.xx.xx:35001“`)
 
 	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
@@ -39,12 +39,12 @@ func init() {
 	flag.BoolVar(&settings.OutputStdout, "output-stdout", false,
 		"Just prints data to console")
 
-	flag.Var(&config.MultiStringOption{&settings.OutputGRPC}, "output-grpc",
+	flag.Var(&config.MultiStringOption{Params: &settings.OutputGRPC}, "output-grpc",
 		`Forwards incoming requests to given grpc address.
 			    # Redirect all incoming requests to xxx.com address
                 grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001")`)
 
-	flag.Var(&config.MultiStringOption{&settings.OutputFileDir},
+	flag.Var(&config.MultiStringOption{Params: &settings.OutputFileDir},
 		"output-file-directory",
 		`Write incoming requests to file:
 		        grpcr --input-raw="0.0.0.0:80" --output-file-directory="/tmp/mycapture"`)
@@ -88,7 +88,7 @@ func main() {
 
 	closeCh := make(chan int)
 	if settings.ExitAfter > 0 {
-		slog.Info("Running gor for a duration of %s\n", settings.ExitAfter)
+		slog.Info("Running grpcr for a duration of %s\n", settings.ExitAfter)
 
 		time.AfterFunc(settings.ExitAfter, func() {
 			slog.Info("run timeout %s\n", settings.ExitAfter)

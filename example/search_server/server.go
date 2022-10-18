@@ -7,6 +7,7 @@ import (
 	pb "github.com/vearne/grpcreplay/example/search_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	_ "google.golang.org/grpc/encoding/gzip" // Registration of gzip Compressor will be completed
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"log"

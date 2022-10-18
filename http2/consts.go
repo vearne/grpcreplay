@@ -40,6 +40,7 @@ func GetDirection(d Dir) string {
 type payloadFormat uint8
 
 const (
+	// nolint: deadcode,varcheck
 	compressionNone payloadFormat = 0 // no compression
 	compressionMade payloadFormat = 1 // compressed
 )
