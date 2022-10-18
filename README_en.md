@@ -48,12 +48,15 @@ sudo -s
 ```
 
 ## Usage
+Capture gRPC request on "0.0.0.0:35001" and print in console
 ```
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout
 ```
+Capture gRPC request on "127.0.0.1:35001" and print in console
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
 ```
+Capture the gRPC request on "127.0.0.1:35001", send it to "127.0.0.1:35002", and print it in the console
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
@@ -62,10 +65,14 @@ Set the value of codec, optional value: "simple" |  "json"
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
-The directory must already exist and be available for writing
+Capture the gRPC request on "127.0.0.1:35001" and record it in a folder. 
+The file is divided according to the maximum limit of 500MB and compressed.
+Note: The directory must already exist and be writeable.
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
 ```
+Read gRPC requests from a folder and replay them. gRPC requests will be sent to "127.0.0.1:35002" 
+and printed in the console
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```

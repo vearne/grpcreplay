@@ -49,12 +49,15 @@ sudo -s
 ```
 
 ## 用法
+捕获"0.0.0.0:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout
 ```
+捕获"127.0.0.1:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
 ```
+捕获"127.0.0.1:35001"上的gRPC请求，发往"127.0.0.1:35002"， 同时打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
@@ -63,10 +66,13 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
-目录必须已经存在且可以执行写入操作
+
+捕获"127.0.0.1:35001"上的gRPC请求，并记录在某个文件夹中, 文件按照最大500MB的限制进行切分，并有压缩。 
+注意: 目录必须已经存在且可以执行写入操作
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
 ```
+从某个文件夹中读取gRPC请求，进行重放。gRPC请求会被发往"127.0.0.1:35002"，同时打印在控制台中
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
