@@ -1,4 +1,5 @@
 # grpcreplay
+[![golang-ci](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml/badge.svg)](https://github.com/vearne/grpcreplay/actions/workflows/golang-ci.yml)
 GrpcReplay is a network monitoring tool that can record your grpc traffic (Unary RPC) 
 and use it for grayscale testing, stress testing or traffic analysis.
 
