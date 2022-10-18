@@ -11,6 +11,25 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 * 支持多种gRPC请求的编码形式(可以方便的扩展)
 * 支持gRPC请求重放
 
+## 编译
+### 安装libpcap
+Ubuntu
+```
+apt-get install -y libpcap-dev
+```
+Centos
+```
+yum install -y libpcap-devel
+```
+Mac
+```
+brew install libpcap
+```
+### 编译
+```
+make build
+```
+
 ## 原理
 1. 由于gRPC使用的Hpack来压缩头部，为了解决这个问题，使用了类似于tcpkill的机制，杀死旧连接，迫使client端发起新连接
 2. 使用gRPC的反射机制来获取Message的定义，以便能够解析gRPC请求
