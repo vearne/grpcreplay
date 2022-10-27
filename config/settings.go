@@ -77,6 +77,8 @@ type AppSettings struct {
 	OutputFileMaxAge int `json:"output-file-max-age"`
 
 	OutputKafkaConfig plugin.OutputKafkaConfig
+	// --- filter ---
+	IncludeFilterMethodMatch string `json:"include-filter-method-match"`
 	// --- other ---
 	Codec string `json:"codec"`
 }

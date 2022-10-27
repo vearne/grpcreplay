@@ -79,6 +79,11 @@ sudo -s
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
+捕获"127.0.0.1:35001"上的gRPC请求，只保留method后缀为Time的请求，并打印在控制台中
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-stdout --include-filter-method-match=".*Time$"
+```
+
 ### 捕获的请求形如
 ```
 {
@@ -125,5 +130,5 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 9)支持从文件中读取GRPC请求
 * [ ] 10)支持从kafka中读取GRPC请求
 * [ ] 11)支持从RocketMQ中读取GRPC请求
-* [ ] 12)支持自定义filter
+* [x] 12)支持自定义filter
 * [ ] 13)支持TLS
