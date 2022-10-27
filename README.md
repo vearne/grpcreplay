@@ -81,6 +81,12 @@ and printed in the console
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
 
+Capture gRPC requests on "127.0.0.1:35001", 
+keep only requests whose method suffix is Time, and print them in the console
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-stdout --include-filter-method-match=".*Time$"
+```
+
 ### The captured request looks like
 ```
 {
@@ -127,5 +133,5 @@ and [buger/goreplay](https://github.com/buger/goreplay)
 * [x] 9)Support for reading GRPC requests from files
 * [ ] 10)Support reading GRPC requests from kafka
 * [ ] 11)Support for reading GRPC requests from RocketMQ
-* [ ] 12)Support custom filter
+* [x] 12)Support custom filter
 * [ ] 13)support TLS

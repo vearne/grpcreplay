@@ -60,6 +60,9 @@ func init() {
 				based on the timestamp encoded in their filename`)
 
 	flag.StringVar(&settings.Codec, "codec", "simple", "")
+
+	flag.StringVar(&settings.IncludeFilterMethodMatch, "include-filter-method-match", "",
+		`filter requests when the method matches the specified regular expression`)
 }
 
 func main() {
