@@ -41,8 +41,8 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
 	}
 
-	for _, addr := range settings.OutputGRPC {
-		addr, err := extractAddr(addr)
+	for _, item := range settings.OutputGRPC {
+		addr, err := extractAddr(item)
 		if err != nil {
 			slog.Fatal("OutputGRPC addr error:%v", err)
 		}

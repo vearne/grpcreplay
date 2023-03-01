@@ -123,6 +123,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 	// 设置stream的状态
 	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
+	var gzipReader *gzip.Reader
 
 	// 把protobuf转换为JSON字符串
 	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
@@ -130,7 +131,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 		// 开启压缩了
 		if msg.PayloadFormat == compressionMade {
 			// only support gzip
-			gzipReader, err := gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
+			gzipReader, err = gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
 			if err != nil {
 				slog.Error("processFrameData, gunzip error:%v", err)
 				return
@@ -320,7 +321,7 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 		slog.Fatal("PBMessageFinder.FindMethodInput, addr:%v, error:%v,enable grpc reflection service？",
 			f.addr, err)
 	}
-	refClient := grpcreflect.NewClient(ctx, reflectpb.NewServerReflectionClient(cc))
+	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(cc))
 	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
 	svc, method := parseSymbol(svcAndMethod)
 	dsc, err := descSource.FindSymbol(svc)

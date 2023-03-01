@@ -171,10 +171,6 @@ func NewRAWInput(address string) (*RAWInput, error) {
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	i.listenerList = make([]*DeviceListener, 0)
 	for j := 0; j < len(deviceList); j++ {
 		i.listenerList = append(i.listenerList, NewDeviceListener(deviceList[j], i.port, &i))

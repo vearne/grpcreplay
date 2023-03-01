@@ -28,7 +28,8 @@ func NewGRPCOutput(addr string) *GRPCOutput {
 		slog.Fatal("grpcurl.BlockingDial :%v", err)
 	}
 	// 通过反射获取接口定义
-	var refClient *grpcreflect.Client = grpcreflect.NewClient(ctx, reflectpb.NewServerReflectionClient(o.cc))
+	// *grpcreflect.Client
+	var refClient = grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(o.cc))
 	o.descSource = grpcurl.DescriptorSourceFromServer(ctx, refClient)
 
 	slog.Info("create grpc output, addr:%v", addr)
