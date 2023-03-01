@@ -27,6 +27,7 @@ jobs:
         run:  |
           sudo apt-get update
           sudo apt-get install -y libpcap-dev
+          go mod vendor
           go test -v ./
 
   lint:
@@ -44,4 +45,4 @@ jobs:
         run: |
           apt-get update && apt-get install -y libpcap-dev
           rm -rf example test
-          golangci-lint run --modules-download-mode=vendor
+          golangci-lint run --modules-download-mode=mod
