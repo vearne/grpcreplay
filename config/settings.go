@@ -56,13 +56,19 @@ func (h *MultiIntOption) Set(value string) error {
 type AppSettings struct {
 	ExitAfter time.Duration `json:"exit-after"`
 
-	// --- input ---
+	// ######################## input #######################
 	InputRAW []string `json:"input-raw"`
 
-	// input-file-directory
+	// --- input-file-directory ---
 	InputFileDir       []string `json:"input-file-directory"`
 	InputFileReadDepth int      `json:"input-file-read-depth"`
-	// --- output ---
+
+	// intput RocketMQ
+	InputRocketMQNameServer []string `json:"input-rocketmq-name-server"`
+	InputRocketMQTopic      string   `json:"input-rocketmq-topic"`
+	InputRocketMQGroupName  string   `json:"input-rocketmq-group-name"`
+
+	// ######################## output ########################
 	OutputStdout bool     `json:"output-stdout"`
 	OutputGRPC   []string `json:"output-grpc"`
 
@@ -74,9 +80,13 @@ type AppSettings struct {
 	OutputFileMaxBackups int `json:"output-file-max-backups"`
 	// MaxAge is the maximum number of days to retain old log files based on the
 	// timestamp encoded in their filename.
-	OutputFileMaxAge int `json:"output-file-max-age"`
-
+	OutputFileMaxAge  int `json:"output-file-max-age"`
 	OutputKafkaConfig plugin.OutputKafkaConfig
+
+	// 	output RocketMQ
+	OutputRocketMQNameServer []string `json:"output-rocketmq-name-server"`
+	OutputRocketMQTopic      string   `json:"output-rocketmq-topic"`
+
 	// --- filter ---
 	IncludeFilterMethodMatch string `json:"include-filter-method-match"`
 	// --- other ---
