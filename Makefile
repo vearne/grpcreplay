@@ -13,7 +13,7 @@ SOURCE_PATH = /go/src/github.com/vearne/grpcreplay/
 
 
 build:
-	go build $(LDFLAGS) -o $(BIN_NAME)
+	CGO_ENABLED=1 go build $(LDFLAGS) -o $(BIN_NAME)
 
 #release: release-linux-amd64 release-mac-arm64
 

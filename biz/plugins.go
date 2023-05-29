@@ -35,10 +35,20 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path, settings.InputFileReadDepth)
 	}
 
+	if len(settings.InputRocketMQNameServer) > 0 {
+		plugins.registerPlugin(plugin.NewRocketMQInput, settings.InputRocketMQNameServer,
+			settings.InputRocketMQTopic, settings.InputRocketMQGroupName,
+			settings.InputRocketMQAccessKey, settings.InputRocketMQSecretKey)
+	}
 	// ----------output----------
 	if settings.OutputStdout {
 		slog.Debug("NewStdOutput")
 		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
+	}
+
+	if len(settings.OutputRocketMQNameServer) > 0 {
+		plugins.registerPlugin(plugin.NewRocketMQOutput, settings.OutputRocketMQNameServer,
+			settings.OutputRocketMQTopic, settings.OutputRocketMQAccessKey, settings.OutputRocketMQSecretKey)
 	}
 
 	for _, item := range settings.OutputGRPC {
@@ -77,7 +87,6 @@ func extractAddr(outputGrpc string) (string, error) {
 }
 
 // Automatically detects type of plugin and initialize it
-//
 func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...interface{}) {
 
 	vc := reflect.ValueOf(constructor)
@@ -103,6 +112,6 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 }
 
 func (plugins *InOutPlugins) String() string {
-	return fmt.Sprintf("len(Inputs):%d, len(Outputs):%d",
-		len(plugins.Inputs), len(plugins.Outputs))
+	return fmt.Sprintf("#####  len(Inputs):%d, len(Outputs):%d, len(All):%d   #####",
+		len(plugins.Inputs), len(plugins.Outputs), len(plugins.All))
 }

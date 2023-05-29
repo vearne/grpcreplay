@@ -41,8 +41,8 @@ make build
 
 ## 注意（请务必阅读一下）
 1. 暂时只支持h2c, 不支持h2
-2. 目前gRPC的编码只支持Protobuf。 
-参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
+2. 目前gRPC的编码只支持Protobuf。
+   参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
 3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
 5. macOS上需要sudo
@@ -69,7 +69,7 @@ sudo -s
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --codec="simple"
 ```
 
-捕获"127.0.0.1:35001"上的gRPC请求，并记录在某个文件夹中, 文件按照最大500MB的限制进行切分，并有压缩。 
+捕获"127.0.0.1:35001"上的gRPC请求，并记录在某个文件夹中, 文件按照最大500MB的限制进行切分，并有压缩。
 注意: 目录必须已经存在且可以执行写入操作
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-file-directory="/tmp/mycapture" --output-file-max-size=500
@@ -83,6 +83,17 @@ sudo -s
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --include-filter-method-match=".*Time$"
 ```
+
+捕获"127.0.0.1:35001"上的gRPC请求，发送到RocketMQ的test topic中
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-rocketmq-name-server="192.168.2.100:9876" --output-rocketmq-topic="test"
+```
+
+从RocketMQ中获取gRPC请求，发往"127.0.0.1:35001"，同时打印在控制台中
+```
+./grpcr --input-rocketmq-name-server="192.168.2.100:9876" --input-rocketmq-topic="test" --output-stdout --output-grpc="grpc://127.0.0.1:35001"
+```
+
 
 ### 捕获的请求形如
 ```
@@ -115,7 +126,7 @@ export SIMPLE_LOG_LEVEL=debug
 本项目使用了[google/gopacket](https://github.com/google/gopacket)，因而依赖`libpcap`
 
 ### 感谢
-受到 [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl) 
+受到 [fullstorydev/grpcurl](https://github.com/fullstorydev/grpcurl)
 和 [buger/goreplay](https://github.com/buger/goreplay)的启发
 
 ## TODO
@@ -126,9 +137,9 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 5)支持将GRPC请求写入控制台
 * [x] 6)支持将GRPC请求写入文件
 * [ ] 7)支持将GRPC请求写入kafka
-* [ ] 8)支持将GRPC请求写入RocketMQ
+* [x] 8)支持将GRPC请求写入RocketMQ
 * [x] 9)支持从文件中读取GRPC请求
 * [ ] 10)支持从kafka中读取GRPC请求
-* [ ] 11)支持从RocketMQ中读取GRPC请求
+* [x] 11)支持从RocketMQ中读取GRPC请求
 * [x] 12)支持自定义filter
 * [ ] 13)支持TLS

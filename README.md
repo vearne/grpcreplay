@@ -87,6 +87,18 @@ keep only requests whose method suffix is Time, and print them in the console
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --include-filter-method-match=".*Time$"
 ```
 
+Capture the gRPC request on "127.0.0.1:35001" and send it to the test topic of RocketMQ
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-rocketmq-name-server="192.168.2.100:9876" --output-rocketmq-topic="test"
+```
+
+Get the gRPC request from RocketMQ, send it to "127.0.0.1:35001", and print it in the console
+```
+./grpcr --input-rocketmq-name-server="192.168.2.100:9876" --input-rocketmq-topic="test" --output-stdout --output-grpc="grpc://127.0.0.1 :35001"
+```
+
+
+
 ### The captured request looks like
 ```
 {
@@ -129,9 +141,9 @@ and [buger/goreplay](https://github.com/buger/goreplay)
 * [x] 5)Supports writing GRPC requests to the console
 * [x] 6)Support for writing GRPC requests to files
 * [ ] 7)Support for writing GRPC requests to kafka
-* [ ] 8)Support for writing GRPC requests to RocketMQ
+* [x] 8)Support for writing GRPC requests to RocketMQ
 * [x] 9)Support for reading GRPC requests from files
 * [ ] 10)Support reading GRPC requests from kafka
-* [ ] 11)Support for reading GRPC requests from RocketMQ
+* [x] 11)Support for reading GRPC requests from RocketMQ
 * [x] 12)Support custom filter
 * [ ] 13)support TLS
