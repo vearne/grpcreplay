@@ -87,6 +87,18 @@ keep only requests whose method suffix is Time, and print them in the console
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --include-filter-method-match=".*Time$"
 ```
 
+Capture the gRPC request on "127.0.0.1:35001" and send it to the test topic of RocketMQ
+```
+./grpcr --input-raw="127.0.0.1:35001" --output-rocketmq-name-server="192.168.2.100:9876" --output-rocketmq-topic="test"
+```
+
+Get the gRPC request from RocketMQ, send it to "127.0.0.1:35001", and print it in the console
+```
+./grpcr --input-rocketmq-name-server="192.168.2.100:9876" --input-rocketmq-topic="test" --output-stdout --output-grpc="grpc://127.0.0.1 :35001"
+```
+
+
+
 ### The captured request looks like
 ```
 {

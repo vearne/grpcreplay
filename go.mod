@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/Shopify/sarama v1.38.1
+	github.com/apache/rocketmq-client-go/v2 v2.1.1
 	github.com/fullstorydev/grpcurl v1.8.7
 	github.com/golang/protobuf v1.5.2
 	github.com/google/gopacket v1.1.19
@@ -21,7 +22,6 @@ require (
 )
 
 require (
-	github.com/apache/rocketmq-client-go/v2 v2.1.1 // indirect
 	github.com/bufbuild/protocompile v0.2.1-0.20230123224550-da57cd758c2f // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.3.0 // indirect
@@ -48,6 +48,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/stathat/consistent v1.0.0 // indirect

@@ -15,22 +15,34 @@ type RocketMQOutput struct {
 	topic   string
 }
 
-func NewRocketMQOutput(nameServers []string, topic string) (*RocketMQOutput, error) {
+func NewRocketMQOutput(nameServers []string, topic, accessKey, secretKey string) (*RocketMQOutput, error) {
 	var o RocketMQOutput
 	var err error
 	o.topic = topic
-	o.product, err = rocketmq.NewProducer(
-		producer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
-		producer.WithRetry(3),
-	)
+	if len(accessKey) > 0 {
+		o.product, err = rocketmq.NewProducer(
+			producer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
+			producer.WithRetry(3),
+			producer.WithCredentials(primitive.Credentials{
+				AccessKey: accessKey,
+				SecretKey: secretKey},
+			),
+		)
+	} else {
+		o.product, err = rocketmq.NewProducer(
+			producer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
+			producer.WithRetry(3),
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
 	err = o.product.Start()
+	slog.Info("NewRocketMQOutput, nameServers:%v, topic:%v, error:%v", nameServers, topic, err)
 	return &o, err
 }
 
-func (o *RocketMQOutput) close() error {
+func (o *RocketMQOutput) Close() error {
 	return o.product.Shutdown()
 }
 

@@ -15,16 +15,29 @@ type RocketMQInput struct {
 	msgChan      chan *primitive.MessageExt
 }
 
-func NewRocketMQInput(nameServers []string, topic, groupName string) (*RocketMQInput, error) {
+func NewRocketMQInput(nameServers []string, topic, groupName string, accessKey, secretKey string) (*RocketMQInput, error) {
 	var in RocketMQInput
 	var err error
 
 	in.topic = topic
 	in.msgChan = make(chan *primitive.MessageExt, 1)
-	in.pushConsumer, err = rocketmq.NewPushConsumer(
-		consumer.WithGroupName(groupName),
-		consumer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
-	)
+	if len(accessKey) > 0 {
+		in.pushConsumer, err = rocketmq.NewPushConsumer(
+			consumer.WithConsumeFromWhere(consumer.ConsumeFromFirstOffset),
+			consumer.WithGroupName(groupName),
+			consumer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
+			consumer.WithCredentials(primitive.Credentials{
+				AccessKey: accessKey,
+				SecretKey: secretKey,
+			}),
+		)
+	} else {
+		in.pushConsumer, err = rocketmq.NewPushConsumer(
+			consumer.WithConsumeFromWhere(consumer.ConsumeFromFirstOffset),
+			consumer.WithGroupName(groupName),
+			consumer.WithNsResolver(primitive.NewPassthroughResolver(nameServers)),
+		)
+	}
 	if err != nil {
 		return nil, err
 	}

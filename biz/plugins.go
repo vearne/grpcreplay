@@ -37,7 +37,8 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 
 	if len(settings.InputRocketMQNameServer) > 0 {
 		plugins.registerPlugin(plugin.NewRocketMQInput, settings.InputRocketMQNameServer,
-			settings.InputRocketMQTopic, settings.InputRocketMQGroupName)
+			settings.InputRocketMQTopic, settings.InputRocketMQGroupName,
+			settings.InputRocketMQAccessKey, settings.InputRocketMQSecretKey)
 	}
 	// ----------output----------
 	if settings.OutputStdout {
@@ -47,7 +48,7 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 
 	if len(settings.OutputRocketMQNameServer) > 0 {
 		plugins.registerPlugin(plugin.NewRocketMQOutput, settings.OutputRocketMQNameServer,
-			settings.OutputRocketMQTopic)
+			settings.OutputRocketMQTopic, settings.OutputRocketMQAccessKey, settings.OutputRocketMQSecretKey)
 	}
 
 	for _, item := range settings.OutputGRPC {
@@ -111,6 +112,6 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 }
 
 func (plugins *InOutPlugins) String() string {
-	return fmt.Sprintf("len(Inputs):%d, len(Outputs):%d",
-		len(plugins.Inputs), len(plugins.Outputs))
+	return fmt.Sprintf("#####  len(Inputs):%d, len(Outputs):%d, len(All):%d   #####",
+		len(plugins.Inputs), len(plugins.Outputs), len(plugins.All))
 }

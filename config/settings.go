@@ -66,6 +66,8 @@ type AppSettings struct {
 	// intput RocketMQ
 	InputRocketMQNameServer []string `json:"input-rocketmq-name-server"`
 	InputRocketMQTopic      string   `json:"input-rocketmq-topic"`
+	InputRocketMQAccessKey  string   `json:"input-rocketmq-access-key"`
+	InputRocketMQSecretKey  string   `json:"input-rocketmq-secret-key"`
 	InputRocketMQGroupName  string   `json:"input-rocketmq-group-name"`
 
 	// ######################## output ########################
@@ -86,6 +88,8 @@ type AppSettings struct {
 	// 	output RocketMQ
 	OutputRocketMQNameServer []string `json:"output-rocketmq-name-server"`
 	OutputRocketMQTopic      string   `json:"output-rocketmq-topic"`
+	OutputRocketMQAccessKey  string   `json:"output-rocketmq-access-key"`
+	OutputRocketMQSecretKey  string   `json:"output-rocketmq-secret-key"`
 
 	// --- filter ---
 	IncludeFilterMethodMatch string `json:"include-filter-method-match"`

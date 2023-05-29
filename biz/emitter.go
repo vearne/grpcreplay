@@ -52,11 +52,15 @@ func (e *Emitter) Close() {
 // CopyMulty copies from 1 reader to multiple writers
 func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
-		msg, _ := src.Read()
+		msg, err := src.Read()
+		if err != nil {
+			slog.Error("src.Read:%v", err)
+			continue
+		}
 		msg, ok := e.filterChain.Filter(msg)
 		if ok {
 			for _, dst := range writers {
-				if err := dst.Write(msg); err != nil {
+				if err = dst.Write(msg); err != nil {
 					slog.Error("dst.Write:%v", err)
 				}
 			}
