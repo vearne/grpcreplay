@@ -13,6 +13,14 @@ import (
 	"time"
 )
 
+const banner string = `
+   ______ ____   ____   ______ ____ 
+  / ____// __ \ / __ \ / ____// __ \
+ / / __ / /_/ // /_/ // /    / /_/ /
+/ /_/ // _, _// ____// /___ / _, _/ 
+\____//_/ |_|/_/     \____//_/ |_|   
+`
+
 var settings config.AppSettings
 var version bool
 
@@ -97,6 +105,8 @@ func init() {
 }
 
 func main() {
+	fmt.Print(banner)
+
 	adjustLogLevel()
 
 	flag.Parse()
