@@ -42,6 +42,11 @@ func init() {
 		`grpcr --input-file-directory="/tmp/mycapture" --output-grpc="grpc://xx.xx.xx.xx:35001“`)
 
 	flag.IntVar(&settings.InputFileReadDepth, "input-file-read-depth", 100, "")
+	/*
+		Replay at 2x speed
+		--input-file-replay-speed=2
+	*/
+	flag.Float64Var(&settings.InputFileReplaySpeed, "input-file-replay-speed", 1, "")
 
 	// input-rocketmq
 	flag.Var(&config.MultiStringOption{Params: &settings.InputRocketMQNameServer},
@@ -156,6 +161,8 @@ func main() {
 func printSettings(settings *config.AppSettings) {
 	slog.Info("input-raw, %v", settings.InputRAW)
 	slog.Info("input-file-directory, %v", settings.InputFileDir)
+	slog.Info("input-file-replay-speed, %v", settings.InputFileReplaySpeed)
+
 	slog.Info("input-rocketmq-name-server, %v", settings.InputRocketMQNameServer)
 	slog.Info("input-rocketmq-topic, %v", settings.InputRocketMQTopic)
 

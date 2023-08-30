@@ -11,7 +11,7 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 * 可以解析Protobuf,需要grpc反射,参考[GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 * 支持多种input和output
 * 支持多种gRPC请求的编码形式(可以方便的扩展)
-* 支持gRPC请求重放
+* 支持gRPC请求重放，支持以多倍速重放
 
 ## 编译
 ### 安装libpcap

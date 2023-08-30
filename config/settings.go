@@ -60,8 +60,9 @@ type AppSettings struct {
 	InputRAW []string `json:"input-raw"`
 
 	// --- input-file-directory ---
-	InputFileDir       []string `json:"input-file-directory"`
-	InputFileReadDepth int      `json:"input-file-read-depth"`
+	InputFileDir         []string `json:"input-file-directory"`
+	InputFileReadDepth   int      `json:"input-file-read-depth"`
+	InputFileReplaySpeed float64  `json:"input-file-replay-speed"`
 
 	// intput RocketMQ
 	InputRocketMQNameServer []string `json:"input-rocketmq-name-server"`

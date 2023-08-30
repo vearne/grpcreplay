@@ -8,7 +8,6 @@ import (
 	"github.com/vearne/gtimer"
 	slog "github.com/vearne/simplelog"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -17,23 +16,25 @@ import (
 )
 
 type FileDirInput struct {
-	codec     protocol.Codec
-	msgChan   chan *protocol.Message
-	timer     *gtimer.SuperTimer
-	path      string
-	readDepth int
+	codec       protocol.Codec
+	msgChan     chan *protocol.Message
+	timer       *gtimer.SuperTimer
+	path        string
+	readDepth   int
+	replaySpeed float64
 	// smallest timestamp
 	benchmarkTimestamp int64
 	reader             *ReinforcedReader
 }
 
-func NewFileDirInput(codec string, path string, readDepth int) *FileDirInput {
+func NewFileDirInput(codec string, path string, readDepth int, speed float64) *FileDirInput {
 	var in FileDirInput
 	in.codec = protocol.GetCodec(codec)
 	in.msgChan = make(chan *protocol.Message, 100)
 	in.timer = gtimer.NewSuperTimer(3)
 	in.path = path
 	in.readDepth = readDepth
+	in.replaySpeed = speed
 	in.benchmarkTimestamp = 0
 
 	in.init()
@@ -70,12 +71,12 @@ func (in *FileDirInput) init() {
 		in.benchmarkTimestamp, len(msgList))
 	for i := 0; i < len(msgList); i++ {
 		msg := msgList[i]
-		addTaskToTimer(in, msg)
+		in.addTaskToTimer(msg)
 	}
 }
 
-func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
-	d := time.Duration(msg.Meta.Timestamp - in.benchmarkTimestamp)
+func (in *FileDirInput) addTaskToTimer(msg *protocol.Message) {
+	d := time.Duration(float64(msg.Meta.Timestamp-in.benchmarkTimestamp) / in.replaySpeed)
 	slog.Debug("delay:%v", time.Now().Add(d))
 	task := gtimer.NewDelayedItemFunc(
 		time.Now().Add(d),
@@ -93,7 +94,7 @@ func addTaskToTimer(in *FileDirInput, msg *protocol.Message) {
 				}
 				return
 			} else {
-				addTaskToTimer(in, newMessage)
+				in.addTaskToTimer(newMessage)
 			}
 		},
 	)
@@ -252,7 +253,7 @@ func (r *ReinforcedReader) ReadMessage() (*protocol.Message, error) {
 -rw-r--r--  1 root  wheel  7333254 10 14 13:50 capture.log
 */
 func getFilesAndDirs(dirPth string) (files []string, err error) {
-	fileInfoList, err := ioutil.ReadDir(dirPth)
+	fileInfoList, err := os.ReadDir(dirPth)
 	if err != nil {
 		return nil, err
 	}
