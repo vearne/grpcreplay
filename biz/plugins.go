@@ -32,7 +32,8 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 			slog.Fatal("%v", err)
 		}
 		slog.Debug("NewFileDirInput, path:%v", path)
-		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path, settings.InputFileReadDepth)
+		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path,
+			settings.InputFileReadDepth, settings.InputFileReplaySpeed)
 	}
 
 	if len(settings.InputRocketMQNameServer) > 0 {
