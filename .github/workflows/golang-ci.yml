@@ -40,5 +40,5 @@ jobs:
       - name: install libpcap-dev
         run: apt-get update && apt-get install -y libpcap-dev
       - name: golangci-lint
-        run: golangci-lint run --buildvcs=false --modules-download-mode=mod
+        run: golangci-lint run --modules-download-mode=mod
         
