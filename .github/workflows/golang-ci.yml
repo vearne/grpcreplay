@@ -24,7 +24,7 @@ jobs:
         with:
           go-version: 1.21
       - name: install libpcap-dev
-        run:  apt-get update && apt-get install -y libpcap-dev
+        run:  sudo apt-get update && sudo apt-get install -y libpcap-dev
       - name: Test
         run:  go mod vendor && go test -v ./...
         
