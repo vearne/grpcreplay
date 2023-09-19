@@ -39,6 +39,8 @@ jobs:
         uses: actions/checkout@v4
       - name: install libpcap-dev
         run: apt-get update && apt-get install -y libpcap-dev
+      - name: remove dirs
+        run: rm -rf .git
       - name: golangci-lint
         run: golangci-lint run --modules-download-mode=mod
         
