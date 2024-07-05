@@ -17,18 +17,26 @@ build:
 
 #release: release-linux-amd64 release-mac-arm64
 
-release-linux-amd64:
+docker-img-linux-amd64:
+	docker build --platform linux/amd64 --rm -t $(CONTAINER) -f Dockerfile.dev .
+
+release-linux-amd64:docker-img-linux-amd64
 	docker run -v `pwd`:$(SOURCE_PATH) -it -e GOOS=linux -e GOARCH=amd64 $(CONTAINER) go build $(LDFLAGS) -o $(BIN_NAME)
 	tar -zcvf $(BIN_NAME)-$(VERSION)-linux-amd64.tar.gz ./$(BIN_NAME)
+	rm $(BIN_NAME)
+
+docker-img-linux-arm64:
+	docker build --platform linux/arm64 --rm -t $(CONTAINER) -f Dockerfile.dev .
+
+release-linux-arm64:docker-img-linux-arm64
+	docker run -v `pwd`:$(SOURCE_PATH) -it -e GOOS=linux -e GOARCH=arm64 $(CONTAINER) go build $(LDFLAGS) -o $(BIN_NAME)
+	tar -zcvf $(BIN_NAME)-$(VERSION)-linux-arm64.tar.gz ./$(BIN_NAME)
 	rm $(BIN_NAME)
 
 release-mac-arm64:
 	env GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BIN_NAME)
 	tar -zcvf $(BIN_NAME)-$(VERSION)-darwin-arm64.tar.gz ./$(BIN_NAME)
 	rm $(BIN_NAME)
-
-docker-img:
-	docker build --rm -t $(CONTAINER) -f Dockerfile.dev .
 
 clean:
 	rm -rf *.pkg
