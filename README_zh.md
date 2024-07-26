@@ -13,6 +13,17 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 * 支持多种gRPC请求的编码形式(可以方便的扩展)
 * 支持gRPC请求重放，支持以多倍速重放
 
+## 测试
+Python/Java/Golang gRPC 都测试通过
+### Python示例
+* [示例](https://github.com/grpc/grpc/blob/master/examples/python/helloworld/greeter_server_with_reflection.py)
+* [如何使用示例](https://grpc.io/docs/languages/python/quickstart/)
+### Java示例
+* [示例](https://github.com/grpc/grpc-java/tree/master/examples/example-reflection)
+* [如何使用示例](https://github.com/grpc/grpc-java/blob/master/examples/example-reflection/README.md)
+### Golang示例
+* [示例](https://github.com/vearne/grpcreplay/tree/main/example)
+
 ## 编译
 ### 安装libpcap
 Ubuntu
