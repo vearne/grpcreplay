@@ -13,6 +13,18 @@ and use it for grayscale testing, stress testing or traffic analysis.
 * Supports multiple encoding forms of gRPC requests (can be easily extended)
 * Support gRPC request replay and replay at multiple speeds
 
+## Test
+Python/Java/Golang gRPC all passed the test
+### Python Demo
+* [demo](https://github.com/grpc/grpc/blob/master/examples/python/helloworld/greeter_server_with_reflection.py)
+* [how to use demo](https://grpc.io/docs/languages/python/quickstart/)
+### Java Demo
+* [demo](https://github.com/grpc/grpc-java/tree/master/examples/example-reflection)
+* [how to use demo](https://github.com/grpc/grpc-java/blob/master/examples/example-reflection/README.md)
+### Golang Demo
+* [demo](https://github.com/vearne/grpcreplay/tree/main/example)
+
+
 ## Compile
 ### install libpcap
 Ubuntu
