@@ -1,11 +1,11 @@
 package http2
 
 import (
+	"errors"
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	psnet "github.com/shirou/gopsutil/v3/net"
-	"github.com/vearne/grpcreplay/consts"
 	"github.com/vearne/grpcreplay/util"
 )
 
@@ -22,24 +22,40 @@ func (d *DirectConn) String() string {
 type Dir uint8
 
 type NetPkg struct {
-	IP        *layers.IPv4
+	SrcIP string
+	DstIP string
+
+	IPv4      *layers.IPv4
+	IPv6      *layers.IPv6
 	TCP       *layers.TCP
 	Direction Dir
 }
 
 func ProcessPacket(packet gopacket.Packet, ipSet *util.StringSet, port int) (*NetPkg, error) {
 	var p NetPkg
-	ipLayer := packet.Layer(layers.LayerTypeIPv4)
-	if ipLayer == nil {
-		return nil, consts.ErrProcessPacket
+	ipLayerIPv4 := packet.Layer(layers.LayerTypeIPv4)
+	ipLayerIPv6 := packet.Layer(layers.LayerTypeIPv6)
+	if ipLayerIPv4 == nil && ipLayerIPv6 == nil {
+		return nil, errors.New("invalid IP package")
 	}
-	p.IP = ipLayer.(*layers.IPv4)
+
+	if ipLayerIPv4 != nil {
+		p.IPv4 = ipLayerIPv4.(*layers.IPv4)
+		p.SrcIP = p.IPv4.SrcIP.String()
+		p.DstIP = p.IPv4.DstIP.String()
+	}
+	if ipLayerIPv6 != nil {
+		p.IPv6 = ipLayerIPv6.(*layers.IPv6)
+		p.SrcIP = p.IPv6.SrcIP.String()
+		p.DstIP = p.IPv6.DstIP.String()
+	}
+
 	tcpLayer := packet.Layer(layers.LayerTypeTCP)
 	if tcpLayer == nil {
-		return nil, consts.ErrProcessPacket
+		return nil, errors.New("invalid TCP package")
 	}
 	p.TCP = tcpLayer.(*layers.TCP)
-	if ipSet.Has(p.IP.DstIP.String()) && int(p.TCP.SrcPort) == port {
+	if ipSet.Has(p.DstIP) && int(p.TCP.SrcPort) == port {
 		p.Direction = DirOutcoming
 	} else {
 		p.Direction = DirIncoming
@@ -72,8 +88,8 @@ func (p *NetPkg) TCPFlags() []string {
 
 func (p *NetPkg) DirectConn() DirectConn {
 	var c DirectConn
-	c.SrcAddr.IP = p.IP.SrcIP.String()
-	c.DstAddr.IP = p.IP.DstIP.String()
+	c.SrcAddr.IP = p.SrcIP
+	c.DstAddr.IP = p.DstIP
 	c.SrcAddr.Port = uint32(p.TCP.SrcPort)
 	c.DstAddr.Port = uint32(p.TCP.DstPort)
 	return c
