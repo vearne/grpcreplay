@@ -84,8 +84,15 @@ func (p *Processor) ProcessTCPPkg() {
 }
 
 func IsConnPreface(payload []byte) bool {
-	return len(payload) == ConnectionPrefaceSize &&
-		(string(payload) == PrefaceEarly || string(payload) == PrefaceSTD)
+	if len(payload) >= ConnectionPrefaceSize {
+		b := payload[0:ConnectionPrefaceSize]
+		if string(b) == PrefaceEarly || string(b) == PrefaceSTD {
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
 }
 
 func (p *Processor) ProcessFrame(f *FrameBase) {
