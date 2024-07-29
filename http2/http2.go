@@ -205,7 +205,12 @@ func ParseFrameBase(b []byte) (*FrameBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	fb.Payload = b[HeaderSize : HeaderSize+fb.Length]
+
+	if fb.Length+HeaderSize <= uint32(len(b)) {
+		fb.Payload = b[HeaderSize : HeaderSize+fb.Length]
+	} else {
+		fb.Payload = b[HeaderSize:len(b)]
+	}
 	return &fb, nil
 }
 
