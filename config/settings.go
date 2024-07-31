@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/vearne/grpcreplay/plugin"
 	"strconv"
 	"time"
 )
@@ -83,8 +82,7 @@ type AppSettings struct {
 	OutputFileMaxBackups int `json:"output-file-max-backups"`
 	// MaxAge is the maximum number of days to retain old log files based on the
 	// timestamp encoded in their filename.
-	OutputFileMaxAge  int `json:"output-file-max-age"`
-	OutputKafkaConfig plugin.OutputKafkaConfig
+	OutputFileMaxAge int `json:"output-file-max-age"`
 
 	// 	output RocketMQ
 	OutputRocketMQNameServer []string `json:"output-rocketmq-name-server"`

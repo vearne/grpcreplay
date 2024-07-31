@@ -345,7 +345,7 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	// get FileDescriptor
 	pf, err := protodesc.NewFile(fd, nil)
 	if err != nil {
-		slog.Fatal("protodesc.NewFile, svcAndMethod:%v", svcAndMethod)
+		slog.Fatal("protodesc.NewFile, svcAndMethod:%v, error:%v", svcAndMethod, err)
 	}
 	reqMsgDescriptor := pf.Messages().ByName(pref.Name(inputType.GetName()))
 	msg := dynamicpb.NewMessage(reqMsgDescriptor)
