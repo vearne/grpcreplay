@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "github.com/vearne/grpcreplay/example/search_proto";
+
+message ExtraInfo {
+    string jobTitle = 1;
+    string location = 2;
+    string department = 3;
+}

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 option go_package = "github.com/vearne/grpcreplay/example/search_proto";
+import "common.proto";
 
 service SearchService {
     rpc Search(SearchRequest) returns (SearchResponse) {}
@@ -18,6 +19,7 @@ message SearchRequest {
     string staffName = 1;
     bool gender = 2;
     uint32 age = 3;
+    ExtraInfo extra = 4;
 }
 
 message SearchResponse {

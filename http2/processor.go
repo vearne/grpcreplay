@@ -5,15 +5,15 @@ import (
 	"compress/gzip"
 	"context"
 	"github.com/fullstorydev/grpcurl"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"io"
-
 	//"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
-	pref "google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/vearne/grpcreplay/protocol"
@@ -312,13 +312,27 @@ func NewPBMessageFinder(addr string) *PBMessageFinder {
 	return &f
 }
 
-func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
+func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) proto.Message {
+	slog.Debug("FindMethodInputWithCache, svcAndMethod:%v", svcAndMethod)
+
 	f.cacheMu.RLock()
 	m, ok := f.symbolMsg[svcAndMethod]
 	f.cacheMu.RUnlock()
 	if ok {
 		return m
 	}
+
+	msg := f.FindMethodInput(svcAndMethod)
+
+	f.cacheMu.Lock()
+	f.symbolMsg[svcAndMethod] = msg
+	f.cacheMu.Unlock()
+	return msg
+}
+
+func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
+	slog.Debug("FindMethodInput, svcAndMethod:%v", svcAndMethod)
+
 	// can't find in cache
 	var cc *grpc.ClientConn
 	network := "tcp"
@@ -331,6 +345,7 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(cc))
 	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
 	svc, method := parseSymbol(svcAndMethod)
+	slog.Debug("parseSymbol, svc:%v, method:%v", svc, method)
 	dsc, err := descSource.FindSymbol(svc)
 	if err != nil {
 		slog.Fatal("descSource.FindSymbol, service:%v, error:%v", svc, err)
@@ -341,19 +356,29 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	}
 	mtd := sd.FindMethodByName(method)
 	inputType := mtd.GetInputType()
-	fd := inputType.GetFile().AsFileDescriptorProto()
 	// get FileDescriptor
-	pf, err := protodesc.NewFile(fd, nil)
-	if err != nil {
-		slog.Fatal("protodesc.NewFile, svcAndMethod:%v, error:%v", svcAndMethod, err)
+	fileDesc := inputType.GetFile()
+	files := &descriptorpb.FileDescriptorSet{}
+	files.File = append(files.File, fileDesc.AsFileDescriptorProto())
+	for _, dependentItem := range fileDesc.GetDependencies() {
+		files.File = append(files.File, dependentItem.AsFileDescriptorProto())
 	}
-	reqMsgDescriptor := pf.Messages().ByName(pref.Name(inputType.GetName()))
-	msg := dynamicpb.NewMessage(reqMsgDescriptor)
 
-	f.cacheMu.Lock()
-	f.symbolMsg[svcAndMethod] = msg
-	f.cacheMu.Unlock()
-	return msg
+	prFiles, err := protodesc.NewFiles(files)
+	if err != nil {
+		slog.Fatal("protodesc.NewFiles, svcAndMethod:%v, error:%v", svcAndMethod, err)
+	}
+	pfd, err := prFiles.FindDescriptorByName(protoreflect.FullName(inputType.GetFullyQualifiedName()))
+	if err != nil {
+		slog.Fatal("prFiles.FindDescriptorByName, svcAndMethod:%v, error:%v", svcAndMethod, err)
+	}
+
+	pfmd, ok := pfd.(protoreflect.MessageDescriptor)
+	if !ok {
+		slog.Fatal("pfd.(protoreflect.MessageDescriptor), svcAndMethod:%v, type:%T", svcAndMethod, pfd)
+	}
+	return dynamicpb.NewMessage(pfmd)
+
 }
 
 func parseSymbol(svcAndMethod string) (string, string) {
