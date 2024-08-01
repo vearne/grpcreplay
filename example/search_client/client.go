@@ -53,6 +53,11 @@ func sendSearch(client pb.SearchServiceClient, i int) {
 			StaffName: "zhangsan",
 			Age:       uint32(i),
 			Gender:    true,
+			Extra: &pb.ExtraInfo{
+				JobTitle:   "software engineer",
+				Location:   "Beijing",
+				Department: "Back Office Department",
+			},
 		},
 	)
 	if err != nil {

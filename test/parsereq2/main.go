@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
+	"log"
 
 	//"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/proto"
@@ -100,37 +101,46 @@ func main() {
 		StaffName: "lisi",
 		Age:       20,
 		Gender:    true,
+		Extra: &pb.ExtraInfo{
+			JobTitle:   "software engineer",
+			Location:   "Beijing",
+			Department: "Back Office Department",
+		},
 	}
 	b, err := protov2.Marshal(&inputReq)
-
 	if err != nil {
 		panic(err)
 	}
 	//proto.Marshal(&inputReq)
-	fmt.Println("----1----", len(b), string(b))
-	fd := inputType.GetFile().AsFileDescriptorProto()
-	fmt.Println(fd.String())
-	// get FileDescriptor
-	pf, err := protodesc.NewFile(fd, nil)
-	pf.Messages().ByName("SearchRequest")
-	searchReqMsgDescriptor := pf.Messages().ByName("SearchRequest")
-	//fDesc := searchReqMsgDescriptor.Fields().ByName("staffName")
-	//fmt.Println("----3----", fDesc.Index())
-	//fDesc = searchReqMsgDescriptor.Fields().ByName("gender")
-	//fmt.Println("----3----", fDesc.Index())
-	//fDesc = searchReqMsgDescriptor.Fields().ByName("age")
-	//fmt.Println("----3----", fDesc.Index())
-	timeReqMsgDescriptor := pf.Messages().ByName("TimeResponse")
-	fDesc := timeReqMsgDescriptor.Fields().ByName("currentTime")
-	fmt.Println("----currentTime----", fDesc.Index(), fDesc.Kind(), fDesc.JSONName())
+	fmt.Println("----1----", len(b))
 
-	msg := dynamicpb.NewMessage(searchReqMsgDescriptor)
-	fmt.Println("msg.Type()", msg.Type())
+	fileDesc := inputType.GetFile()
+	fmt.Println(fileDesc.GetName())
+	fmt.Println(fileDesc.GetDependencies())
+
+	files := &descriptorpb.FileDescriptorSet{}
+	files.File = append(files.File, fileDesc.AsFileDescriptorProto())
+	for _, dependentItem := range fileDesc.GetDependencies() {
+		files.File = append(files.File, dependentItem.AsFileDescriptorProto())
+	}
+	prFiles, err := protodesc.NewFiles(files)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pfd, err := prFiles.FindDescriptorByName("SearchRequest")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pfmd := pfd.(pref.MessageDescriptor)
+	msg := dynamicpb.NewMessage(pfmd)
+	//fmt.Println("msg.Type()", msg.Type())
 	//cloneMsg := protov2.Clone(msg)
-	fmt.Println("----1----", len(b), string(b))
+	fmt.Println("----1----", len(b))
 	if err := proto.Unmarshal(b, msg); err != nil {
 		panic(err)
 	}
+
 	jsonPrint(msg)
 }
 
