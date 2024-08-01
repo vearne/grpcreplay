@@ -1,4 +1,4 @@
-VERSION := v0.0.6
+VERSION := v0.0.7
 
 BIN_NAME = grpcr
 CONTAINER = grpcr
