@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/vearne/grpcreplay/example/service_proto/another"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	_ "google.golang.org/grpc/encoding/gzip" // Registration of gzip Compressor will be completed
@@ -12,7 +13,7 @@ import (
 	"math/rand"
 	"time"
 
-	pb "github.com/vearne/grpcreplay/example/search_proto"
+	pb "github.com/vearne/grpcreplay/example/service_proto"
 )
 
 const PORT = "35001"
@@ -56,7 +57,7 @@ func sendSearch(client pb.SearchServiceClient, i int) {
 			Extra: &pb.ExtraInfo{
 				JobTitle:   "software engineer",
 				Location:   "Beijing",
-				Department: "Back Office Department",
+				Department: &another.Department{Id: 2000, Name: "backend"},
 			},
 		},
 	)

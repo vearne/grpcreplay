@@ -333,7 +333,6 @@ func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) proto.Me
 func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	slog.Debug("FindMethodInput, svcAndMethod:%v", svcAndMethod)
 
-	// can't find in cache
 	var cc *grpc.ClientConn
 	network := "tcp"
 	ctx := context.Background()
@@ -357,14 +356,9 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	mtd := sd.FindMethodByName(method)
 	inputType := mtd.GetInputType()
 	// get FileDescriptor
-	fileDesc := inputType.GetFile()
-	files := &descriptorpb.FileDescriptorSet{}
-	files.File = append(files.File, fileDesc.AsFileDescriptorProto())
-	for _, dependentItem := range fileDesc.GetDependencies() {
-		files.File = append(files.File, dependentItem.AsFileDescriptorProto())
-	}
-
-	prFiles, err := protodesc.NewFiles(files)
+	fdSet := &descriptorpb.FileDescriptorSet{}
+	ConstructFileDescriptorSet(fdSet, inputType.GetFile())
+	prFiles, err := protodesc.NewFiles(fdSet)
 	if err != nil {
 		slog.Fatal("protodesc.NewFiles, svcAndMethod:%v, error:%v", svcAndMethod, err)
 	}
@@ -378,7 +372,13 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 		slog.Fatal("pfd.(protoreflect.MessageDescriptor), svcAndMethod:%v, type:%T", svcAndMethod, pfd)
 	}
 	return dynamicpb.NewMessage(pfmd)
+}
 
+func ConstructFileDescriptorSet(fdSet *descriptorpb.FileDescriptorSet, fd *desc.FileDescriptor) {
+	fdSet.File = append(fdSet.File, fd.AsFileDescriptorProto())
+	for _, dependentItem := range fd.GetDependencies() {
+		ConstructFileDescriptorSet(fdSet, dependentItem)
+	}
 }
 
 func parseSymbol(svcAndMethod string) (string, string) {

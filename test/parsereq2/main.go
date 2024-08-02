@@ -21,7 +21,7 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	pb "github.com/vearne/grpcreplay/example/search_proto"
+	pb "github.com/vearne/grpcreplay/example/service_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"

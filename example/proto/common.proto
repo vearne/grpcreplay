@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option go_package = "github.com/vearne/grpcreplay/example/service_proto";
+import "proto/another/department.proto";
+
+message ExtraInfo {
+    string jobTitle = 1;
+    string location = 2;
+    Department department = 3;
+}
