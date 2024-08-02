@@ -356,8 +356,9 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	mtd := sd.FindMethodByName(method)
 	inputType := mtd.GetInputType()
 	// get FileDescriptor
+	strSet := NewStringSet()
 	fdSet := &descriptorpb.FileDescriptorSet{}
-	ConstructFileDescriptorSet(fdSet, inputType.GetFile())
+	ConstructFileDescriptorSet(strSet, fdSet, inputType.GetFile())
 	prFiles, err := protodesc.NewFiles(fdSet)
 	if err != nil {
 		slog.Fatal("protodesc.NewFiles, svcAndMethod:%v, error:%v", svcAndMethod, err)
@@ -374,10 +375,13 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	return dynamicpb.NewMessage(pfmd)
 }
 
-func ConstructFileDescriptorSet(fdSet *descriptorpb.FileDescriptorSet, fd *desc.FileDescriptor) {
-	fdSet.File = append(fdSet.File, fd.AsFileDescriptorProto())
+func ConstructFileDescriptorSet(set *StringSet, fdSet *descriptorpb.FileDescriptorSet, fd *desc.FileDescriptor) {
+	if !set.Has(fd.GetName()) {
+		fdSet.File = append(fdSet.File, fd.AsFileDescriptorProto())
+		set.Add(fd.GetName())
+	}
 	for _, dependentItem := range fd.GetDependencies() {
-		ConstructFileDescriptorSet(fdSet, dependentItem)
+		ConstructFileDescriptorSet(set, fdSet, dependentItem)
 	}
 }
 
