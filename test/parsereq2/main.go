@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/vearne/grpcreplay/example/service_proto/another"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -104,7 +105,7 @@ func main() {
 		Extra: &pb.ExtraInfo{
 			JobTitle:   "software engineer",
 			Location:   "Beijing",
-			Department: "Back Office Department",
+			Department: &another.Department{Id: 2001},
 		},
 	}
 	b, err := protov2.Marshal(&inputReq)
@@ -115,7 +116,7 @@ func main() {
 	fmt.Println("----1----", len(b))
 
 	fileDesc := inputType.GetFile()
-	fmt.Println(fileDesc.GetName())
+	fmt.Println("--name--:", fileDesc.GetName())
 	fmt.Println(fileDesc.GetDependencies())
 
 	files := &descriptorpb.FileDescriptorSet{}
@@ -123,6 +124,7 @@ func main() {
 	for _, dependentItem := range fileDesc.GetDependencies() {
 		files.File = append(files.File, dependentItem.AsFileDescriptorProto())
 	}
+	files.File = append(files.File, fileDesc.AsFileDescriptorProto())
 	prFiles, err := protodesc.NewFiles(files)
 	if err != nil {
 		log.Fatal(err)
