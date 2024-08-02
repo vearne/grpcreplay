@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
-	pb "github.com/vearne/grpcreplay/example/search_proto"
+	pb "github.com/vearne/grpcreplay/example/service_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	_ "google.golang.org/grpc/encoding/gzip" // Registration of gzip Compressor will be completed
