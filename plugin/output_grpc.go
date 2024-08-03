@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/vearne/grpcreplay/protocol"
@@ -41,6 +42,11 @@ func (o *GRPCOutput) Close() error {
 }
 
 func (o *GRPCOutput) Write(msg *protocol.Message) (err error) {
+	if len(msg.Data.Method) <= 0 {
+		slog.Error("invalid msg:%v", msg)
+		return fmt.Errorf("invalid msg:%v", msg)
+	}
+
 	in := strings.NewReader(msg.Data.Request)
 
 	slog.Debug("Request:%v", msg.Data.Request)
