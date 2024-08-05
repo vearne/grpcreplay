@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/vearne/grpcreplay/protocol"
@@ -41,6 +42,11 @@ func (o *GRPCOutput) Close() error {
 }
 
 func (o *GRPCOutput) Write(msg *protocol.Message) (err error) {
+	if len(msg.Data.Method) <= 0 {
+		slog.Error("invalid msg:%v", msg)
+		return fmt.Errorf("invalid msg:%v", msg)
+	}
+
 	in := strings.NewReader(msg.Data.Request)
 
 	slog.Debug("Request:%v", msg.Data.Request)
@@ -63,8 +69,11 @@ func (o *GRPCOutput) Write(msg *protocol.Message) (err error) {
 		VerbosityLevel: 0,
 	}
 
+	symbol := msg.Data.Method
 	// /proto.SearchService/Search  ->  proto.SearchService/Search
-	symbol := msg.Data.Method[1:]
+	if strings.HasPrefix(msg.Data.Method, "/") {
+		symbol = symbol[1:]
+	}
 
 	headers := convertHeader(msg)
 	err = grpcurl.InvokeRPC(context.Background(), o.descSource, o.cc, symbol, headers, h, rf.Next)
