@@ -9,7 +9,7 @@ const (
 	HeaderSize            = 9
 	LengthSize            = 3
 	ConnectionPrefaceSize = 24
-	StreamArraySize       = 1000
+	StreamArraySize       = 10000
 	SettingFormatItemSize = 48
 )
 
