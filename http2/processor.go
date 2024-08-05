@@ -127,15 +127,15 @@ func (p *Processor) processFrameData(f *FrameBase) {
 	}
 
 	hc := p.ConnRepository[*f.DirectConn]
-	// 设置stream的状态
+	// Set the state of the stream
 	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
 	var gzipReader *gzip.Reader
 
-	// 把protobuf转换为JSON字符串
+	// Convert protobuf to JSON string
 	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
 		msg, _ := fd.ParseGRPCMessage()
-		// 开启压缩了
+		// Compression is turned on
 		if msg.PayloadFormat == compressionMade {
 			// only support gzip
 			gzipReader, err = gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
@@ -152,17 +152,20 @@ func (p *Processor) processFrameData(f *FrameBase) {
 
 		codecType := getCodecType(stream.Headers)
 		if codecType == CodecProtobuf {
-			// 注意:暂时只处理 编码方式为Protobuf的情况
-			pbMsg := p.Finder.FindMethodInput(stream.Method)
+			if len(stream.Method) <= 0 {
+				slog.Error("method is empty, this is illegal")
+			} else {
+				// Note: Temporarily only handle the case where the encoding method is Protobuf
+				pbMsg := p.Finder.FindMethodInputWithCache(stream.Method)
+				err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
+				if err != nil {
+					slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
+				}
 
-			err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
-			if err != nil {
-				slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
-			}
-
-			stream.Request, err = protojson.Marshal(pbMsg)
-			if err != nil {
-				slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
+				stream.Request, err = protojson.Marshal(pbMsg)
+				if err != nil {
+					slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
+				}
 			}
 		} else {
 			stream.Request = msg.EncodedMessage
@@ -192,7 +195,7 @@ func (p *Processor) processFrameHeader(f *FrameBase) {
 	}
 
 	hc := p.ConnRepository[*f.DirectConn]
-	// 设置stream的状态
+	// Set the state of the stream
 	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
 	stream.StreamID = f.StreamID
@@ -254,7 +257,7 @@ func (p *Processor) processFrameContinuation(f *FrameBase) {
 		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
 		return
 	}
-	// 设置stream的状态
+	// Set the state of the stream
 	index := fc.fb.StreamID % StreamArraySize
 	stream := hc.Streams[index]
 	stream.StreamID = f.StreamID
@@ -291,7 +294,7 @@ func (p *Processor) processFrameRSTStream(f *FrameBase) {
 		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
 		return
 	}
-	// 设置stream的状态
+	// Set the state of the stream
 	index := f.StreamID % StreamArraySize
 	stream := hc.Streams[index]
 	stream.Reset()
