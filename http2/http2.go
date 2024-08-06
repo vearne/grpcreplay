@@ -7,6 +7,8 @@ import (
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"golang.org/x/net/http2/hpack"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"time"
 
 	"github.com/google/uuid"
@@ -134,8 +136,10 @@ type Stream struct {
 	EndStream bool
 	Headers   map[string]string `json:"headers"`
 	Method    string            `json:"method"`
-	// json序列化后的结果
-	Request []byte `json:"request"`
+
+	// The result after json serialization
+	Request []byte        `json:"request"`
+	DataBuf *bytes.Buffer `json:"-"`
 }
 
 func NewStream() *Stream {
@@ -143,10 +147,11 @@ func NewStream() *Stream {
 	s.Headers = make(map[string]string)
 	s.EndStream = false
 	s.EndHeader = false
+	s.DataBuf = bytes.NewBuffer([]byte{})
 	return &s
 }
 
-func (s *Stream) toMsg() *protocol.Message {
+func (s *Stream) toMsg(finder *PBMessageFinder) *protocol.Message {
 	var msg protocol.Message
 	id := uuid.Must(uuid.NewUUID())
 	msg.Meta.Version = 1
@@ -155,8 +160,29 @@ func (s *Stream) toMsg() *protocol.Message {
 
 	msg.Data.Headers = s.Headers
 	msg.Data.Method = s.Method
-	msg.Data.Request = string(s.Request)
 
+	codecType := getCodecType(s.Headers)
+	if codecType == CodecProtobuf {
+		if len(s.Method) <= 0 {
+			slog.Error("method is empty, this is illegal")
+		} else {
+			// Note: Temporarily only handle the case where the encoding method is Protobuf
+			pbMsg := finder.FindMethodInputWithCache(s.Method)
+			err := proto.Unmarshal(s.DataBuf.Bytes(), pbMsg)
+			if err != nil {
+				slog.Error("method:%v, proto.Unmarshal:%v", s.Method, err)
+			}
+
+			s.Request, err = protojson.Marshal(pbMsg)
+			if err != nil {
+				slog.Error("method:%v, json.Marshal:%v", s.Method, err)
+			}
+		}
+	} else {
+		s.Request = s.DataBuf.Bytes()
+	}
+
+	msg.Data.Request = string(s.Request)
 	return &msg
 }
 
@@ -165,9 +191,11 @@ func (s *Stream) Reset() {
 	s.EndStream = false
 	s.EndHeader = false
 	s.Headers = make(map[string]string)
+	s.Request = make([]byte, 0)
+	s.DataBuf.Reset()
 }
 
-// 帧头部
+// Frame Header
 type FrameBase struct {
 	DirectConn *DirectConn
 	StreamID   uint32
@@ -226,7 +254,7 @@ func ParseFrameSetting(f *FrameBase) (*FrameSetting, error) {
 
 	fs.Ack = f.Flags&0x1 != 0
 	reader := bytes.NewReader(f.Payload)
-	// 参数都是可选
+	// All parameters are optional
 	for reader.Len() > 0 {
 		err = binary.Read(reader, binary.BigEndian, &identifier)
 		if err != nil {

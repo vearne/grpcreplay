@@ -10,7 +10,6 @@ import (
 	//"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -150,30 +149,14 @@ func (p *Processor) processFrameData(f *FrameBase) {
 			}
 		}
 
-		codecType := getCodecType(stream.Headers)
-		if codecType == CodecProtobuf {
-			if len(stream.Method) <= 0 {
-				slog.Error("method is empty, this is illegal")
-			} else {
-				// Note: Temporarily only handle the case where the encoding method is Protobuf
-				pbMsg := p.Finder.FindMethodInputWithCache(stream.Method)
-				err = proto.Unmarshal(msg.EncodedMessage, pbMsg)
-				if err != nil {
-					slog.Error("method:%v, proto.Unmarshal:%v", stream.Method, err)
-				}
-
-				stream.Request, err = protojson.Marshal(pbMsg)
-				if err != nil {
-					slog.Error("method:%v, json.Marshal:%v", stream.Method, err)
-				}
-			}
-		} else {
-			stream.Request = msg.EncodedMessage
+		_, err = stream.DataBuf.Write(msg.EncodedMessage)
+		if err != nil {
+			slog.Error("processFrameData, gunzip error:%v", err)
 		}
 	}
 
 	if fd.EndStream {
-		p.OutputChan <- stream.toMsg()
+		p.OutputChan <- stream.toMsg(p.Finder)
 		stream.Reset()
 	}
 }
@@ -220,7 +203,7 @@ func (p *Processor) processFrameHeader(f *FrameBase) {
 	}
 
 	if fh.EndStream {
-		p.OutputChan <- stream.toMsg()
+		p.OutputChan <- stream.toMsg(p.Finder)
 		stream.Reset()
 	}
 }
