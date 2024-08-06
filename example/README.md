@@ -3,6 +3,13 @@
 find ./proto -name "*.proto" -exec protoc --go_out=$GOPATH/src\
  --go-grpc_out=$GOPATH/src --go-grpc_opt=require_unimplemented_servers=false {} \;
 ```
+or
+```
+protoc  --go_out=$GOPATH/src  --go-grpc_out=$GOPATH/src\
+ --go-grpc_opt=require_unimplemented_servers=false \
+   ./proto/*.proto  ./proto/another/*.proto  
+```
+
 
 ## Verify reflection interface
 ```
