@@ -51,6 +51,9 @@ func (p *Processor) ProcessTCPPkg() {
 			continue
 		}
 
+		dc := pkg.DirectConn()
+		slog.Debug("Connection:%v, seq:%v, length:%v", &dc, pkg.TCP.Seq, len(payload))
+
 		for len(payload) >= HeaderSize {
 			f, err = ParseFrameBase(payload)
 			if err != nil {
@@ -60,8 +63,8 @@ func (p *Processor) ProcessTCPPkg() {
 
 			dc := pkg.DirectConn()
 			f.DirectConn = &dc
-			slog.Debug("Connection:%v, seq:%v, FrameType:%v, length:%v, streamID:%v",
-				f.DirectConn, pkg.TCP.Seq, GetFrameType(f.Type), f.Length, f.StreamID)
+			slog.Debug("Connection:%v, seq:%v, FrameType:%v, length:%v, len(payload):%v, streamID:%v",
+				f.DirectConn, pkg.TCP.Seq, GetFrameType(f.Type), f.Length, len(f.Payload), f.StreamID)
 
 			var ok bool
 			if _, ok = p.ConnRepository[dc]; !ok {
@@ -125,6 +128,9 @@ func (p *Processor) processFrameData(f *FrameBase) {
 		return
 	}
 
+	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
+		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
+
 	hc := p.ConnRepository[*f.DirectConn]
 	// Set the state of the stream
 	index := f.StreamID % StreamArraySize
@@ -136,6 +142,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 		msg, _ := fd.ParseGRPCMessage()
 		// Compression is turned on
 		if msg.PayloadFormat == compressionMade {
+			slog.Debug("msg.PayloadFormat == compressionMade")
 			// only support gzip
 			gzipReader, err = gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
 			if err != nil {
@@ -149,6 +156,7 @@ func (p *Processor) processFrameData(f *FrameBase) {
 			}
 		}
 
+		slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
 		_, err = stream.DataBuf.Write(msg.EncodedMessage)
 		if err != nil {
 			slog.Error("processFrameData, gunzip error:%v", err)
@@ -305,6 +313,7 @@ func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) proto.Me
 	m, ok := f.symbolMsg[svcAndMethod]
 	f.cacheMu.RUnlock()
 	if ok {
+		slog.Debug("FindMethodInputWithCache,svcAndMethod:%v, hit cache", svcAndMethod)
 		return m
 	}
 
