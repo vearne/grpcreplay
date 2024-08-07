@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -165,7 +166,7 @@ func (s *Stream) toMsg(finder *PBMessageFinder) *protocol.Message {
 	if codecType == CodecProtobuf {
 		if len(s.Method) <= 0 {
 			slog.Error("method is empty, this is illegal")
-		} else {
+		} else if !strings.Contains(s.Method, "grpc.reflection") {
 			// Note: Temporarily only handle the case where the encoding method is Protobuf
 			pbMsg := finder.FindMethodInputWithCache(s.Method)
 			err := proto.Unmarshal(s.DataBuf.Bytes(), pbMsg)
