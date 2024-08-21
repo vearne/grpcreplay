@@ -16,3 +16,7 @@ type PluginWriter interface {
 	io.Closer
 	Write(msg *protocol.Message) (err error)
 }
+
+type Limiter interface {
+	Allow() bool
+}
