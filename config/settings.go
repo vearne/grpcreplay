@@ -92,6 +92,11 @@ type AppSettings struct {
 
 	// --- filter ---
 	IncludeFilterMethodMatch string `json:"include-filter-method-match"`
+
+	// --- rate limit ---
+	// Query per second
+	RateLimitQPS int `json:"rate-limit-qps"`
+
 	// --- other ---
 	Codec string `json:"codec"`
 }

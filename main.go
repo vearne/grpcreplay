@@ -94,6 +94,10 @@ func init() {
 	flag.StringVar(&settings.IncludeFilterMethodMatch, "include-filter-method-match", "",
 		`filter requests when the method matches the specified regular expression`)
 
+	// rate limit
+	flag.IntVar(&settings.RateLimitQPS, "rate-limit-qps", -1,
+		`the capture rate per second limit for Query`)
+
 	// rocketmq
 	flag.Var(&config.MultiStringOption{Params: &settings.OutputRocketMQNameServer},
 		"output-rocketmq-name-server",
@@ -129,7 +133,8 @@ func main() {
 	if err != nil {
 		slog.Fatal("create FilterChain error:%v", err)
 	}
-	emitter := biz.NewEmitter(filterChain)
+	limiter := biz.NewRateLimit(&settings)
+	emitter := biz.NewEmitter(filterChain, limiter)
 	plugins := biz.NewPlugins(&settings)
 
 	slog.Info("plugins:%v", plugins)

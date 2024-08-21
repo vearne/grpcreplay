@@ -12,12 +12,14 @@ type Emitter struct {
 	sync.WaitGroup
 	plugins     *InOutPlugins
 	filterChain filter.Filter
+	limiter     Limiter
 }
 
 // NewEmitter creates and initializes new Emitter object.
-func NewEmitter(f filter.Filter) *Emitter {
+func NewEmitter(f filter.Filter, lim Limiter) *Emitter {
 	var e Emitter
 	e.filterChain = f
+	e.limiter = lim
 	return &e
 }
 
@@ -58,11 +60,17 @@ func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 			continue
 		}
 		msg, ok := e.filterChain.Filter(msg)
-		if ok {
-			for _, dst := range writers {
-				if err = dst.Write(msg); err != nil {
-					slog.Error("dst.Write:%v", err)
-				}
+		if !ok {
+			continue
+		}
+
+		if e.limiter != nil && !e.limiter.Allow() {
+			continue
+		}
+
+		for _, dst := range writers {
+			if err = dst.Write(msg); err != nil {
+				slog.Error("dst.Write:%v", err)
 			}
 		}
 	}
