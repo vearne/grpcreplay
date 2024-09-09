@@ -152,7 +152,7 @@ func NewStream() *Stream {
 	return &s
 }
 
-func (s *Stream) toMsg(finder *PBMessageFinder) *protocol.Message {
+func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
 	var msg protocol.Message
 	id := uuid.Must(uuid.NewUUID())
 	msg.Meta.Version = 1
@@ -168,15 +168,21 @@ func (s *Stream) toMsg(finder *PBMessageFinder) *protocol.Message {
 			slog.Error("method is empty, this is illegal")
 		} else if !strings.Contains(s.Method, "grpc.reflection") {
 			// Note: Temporarily only handle the case where the encoding method is Protobuf
-			pbMsg := finder.FindMethodInputWithCache(s.Method)
-			err := proto.Unmarshal(s.DataBuf.Bytes(), pbMsg)
+			pbMsg, err := finder.FindMethodInputWithCache(s.Method)
+			if err != nil {
+				slog.Error("finder.FindMethodInputWithCache, error:%v", err)
+				return nil, err
+			}
+			err = proto.Unmarshal(s.DataBuf.Bytes(), pbMsg)
 			if err != nil {
 				slog.Error("method:%v, proto.Unmarshal:%v", s.Method, err)
+				return nil, err
 			}
 
 			s.Request, err = protojson.Marshal(pbMsg)
 			if err != nil {
 				slog.Error("method:%v, json.Marshal:%v", s.Method, err)
+				return nil, err
 			}
 		}
 	} else {
@@ -184,7 +190,7 @@ func (s *Stream) toMsg(finder *PBMessageFinder) *protocol.Message {
 	}
 
 	msg.Data.Request = string(s.Request)
-	return &msg
+	return &msg, nil
 }
 
 func (s *Stream) Reset() {
