@@ -342,7 +342,7 @@ func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) proto.Message {
 	slog.Debug("parseSymbol, svc:%v, method:%v", svc, method)
 	dsc, err := descSource.FindSymbol(svc)
 	if err != nil {
-		slog.Fatal("descSource.FindSymbol, service:%v, error:%v", svc, err)
+		slog.Fatal("descSource.FindSymbol, service:%v, method:%v, error:%v", svc, method, err)
 	}
 	sd, ok := dsc.(*desc.ServiceDescriptor)
 	if !ok {
