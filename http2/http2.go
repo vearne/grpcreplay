@@ -164,6 +164,7 @@ func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
 
 	codecType := getCodecType(s.Headers)
 	if codecType == CodecProtobuf {
+		s.Method = strings.TrimSpace(s.Method)
 		if len(s.Method) <= 0 {
 			slog.Error("method is empty, this is illegal")
 		} else if !strings.Contains(s.Method, "grpc.reflection") {

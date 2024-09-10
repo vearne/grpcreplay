@@ -8,7 +8,7 @@ and use it for grayscale testing, stress testing or traffic analysis.
 
 ## Feature
 * support filter
-* support to parse Protobuf, requires grpc reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
+* support to parse Protobuf, **requires grpc reflection** [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 * Supports various input and output plugins
 * Supports multiple encoding forms of gRPC requests (can be easily extended)
 * Support gRPC request replay and replay at multiple speeds
