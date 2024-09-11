@@ -67,7 +67,6 @@ func (l *DeviceListener) listen() error {
 			&conn, http2.GetDirection(netPkg.Direction))
 		if netPkg.Direction == http2.DirIncoming {
 			//l.rawInput.outputChan <- packet
-			conn := netPkg.DirectConn()
 			if l.rawInput.connSet.Has(conn) { // history connection
 				if netPkg.TCP.ACK {
 					slog.Debug("send RST, for connection:%v", &conn)
