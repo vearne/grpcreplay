@@ -19,6 +19,7 @@ const banner string = `
  / / __ / /_/ // /_/ // /    / /_/ /
 / /_/ // _, _// ____// /___ / _, _/ 
 \____//_/ |_|/_/     \____//_/ |_|   
+
 `
 
 var settings config.AppSettings
