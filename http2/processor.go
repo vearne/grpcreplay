@@ -62,7 +62,7 @@ func (p *Processor) ProcessTCPPkg() {
 				continue
 			}
 
-			dc := pkg.DirectConn()
+			dc = pkg.DirectConn()
 			f.DirectConn = &dc
 			slog.Debug("Connection:%v, seq:%v, FrameType:%v, length:%v, len(payload):%v, streamID:%v",
 				f.DirectConn, pkg.TCP.Seq, GetFrameType(f.Type), f.Length, len(f.Payload), f.StreamID)

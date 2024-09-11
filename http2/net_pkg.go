@@ -55,10 +55,12 @@ func ProcessPacket(packet gopacket.Packet, ipSet *util.StringSet, port int) (*Ne
 		return nil, errors.New("invalid TCP package")
 	}
 	p.TCP = tcpLayer.(*layers.TCP)
-	if ipSet.Has(p.DstIP) && int(p.TCP.SrcPort) == port {
+	if ipSet.Has(p.SrcIP) && int(p.TCP.SrcPort) == port {
 		p.Direction = DirOutcoming
-	} else {
+	} else if ipSet.Has(p.DstIP) && int(p.TCP.DstPort) == port {
 		p.Direction = DirIncoming
+	} else {
+		p.Direction = DirUnknown
 	}
 	return &p, nil
 }

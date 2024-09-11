@@ -1,20 +1,20 @@
 package util
 
 type StringSet struct {
-	internal map[string]int
+	internal map[string]struct{}
 }
 
 func NewStringSet() *StringSet {
-	return &StringSet{internal: make(map[string]int)}
+	return &StringSet{internal: make(map[string]struct{})}
 }
 
 func (set *StringSet) Add(str string) {
-	set.internal[str] = 1
+	set.internal[str] = struct{}{}
 }
 
 func (set *StringSet) AddAll(itemSlice []string) {
 	for _, item := range itemSlice {
-		set.internal[item] = 1
+		set.internal[item] = struct{}{}
 	}
 }
 
