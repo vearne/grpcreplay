@@ -116,8 +116,6 @@ func init() {
 func main() {
 	fmt.Print(banner)
 
-	adjustLogLevel()
-
 	flag.Parse()
 	if version {
 		fmt.Println("service: grpcreplay")
@@ -176,12 +174,4 @@ func printSettings(settings *config.AppSettings) {
 	slog.Info("output-grpc, %v", settings.OutputGRPC)
 	slog.Info("output-rocketmq-name-server, %v", settings.OutputRocketMQNameServer)
 	slog.Info("output-rocketmq-topic, %v", settings.OutputRocketMQTopic)
-}
-
-func adjustLogLevel() {
-	logLevel := os.Getenv("SIMPLE_LOG_LEVEL")
-	if len(logLevel) > 0 {
-		return
-	}
-	slog.SetLevel(slog.InfoLevel)
 }
