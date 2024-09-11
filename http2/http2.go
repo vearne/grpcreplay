@@ -3,6 +3,7 @@ package http2
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
@@ -167,6 +168,7 @@ func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
 		s.Method = strings.TrimSpace(s.Method)
 		if len(s.Method) <= 0 {
 			slog.Error("method is empty, this is illegal")
+			return nil, errors.New("method is empty")
 		} else if !strings.Contains(s.Method, "grpc.reflection") {
 			// Note: Temporarily only handle the case where the encoding method is Protobuf
 			pbMsg, err := finder.FindMethodInputWithCache(s.Method)
