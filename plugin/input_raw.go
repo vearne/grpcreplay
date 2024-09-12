@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	snapshotLen int32         = 20000
+	snapshotLen int32         = 10 * 1024 * 1024
 	promiscuous bool          = false
 	timeout     time.Duration = 5 * time.Second
 )
