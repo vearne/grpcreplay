@@ -46,6 +46,7 @@ func (p *Processor) ProcessTCPPkg() {
 		if _, ok := p.ConnRepository[dc]; !ok {
 			p.ConnRepository[dc] = NewHttp2Conn(dc, http2initialHeaderTableSize, p)
 		}
+		hc := p.ConnRepository[dc]
 
 		// SYN/ACK/FIN
 		if len(payload) < HeaderSize {
@@ -54,10 +55,11 @@ func (p *Processor) ProcessTCPPkg() {
 
 		// connection preface
 		if IsConnPreface(payload) {
+			hc.SocketBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
+			hc.SocketBuffer.leftPointer = hc.SocketBuffer.expectedSeq
 			continue
 		}
 
-		hc := p.ConnRepository[dc]
 		hc.SocketBuffer.AddTCP(pkg.TCP)
 	}
 }

@@ -17,6 +17,7 @@ type SocketBuffer struct {
 	actualCanReadSize atomic.Uint32
 	List              *skiplist.SkipList
 	expectedSeq       int64
+	leftPointer       int64
 
 	//There is at most one reader to read
 	dataChannel chan []byte
@@ -28,7 +29,8 @@ func NewSocketBuffer() *SocketBuffer {
 	sb.size = 0
 	sb.actualCanReadSize.Store(0)
 	sb.expectedSeq = -1
-	sb.dataChannel = make(chan []byte, 1)
+	sb.leftPointer = -1
+	sb.dataChannel = make(chan []byte, 10)
 	return &sb
 }
 
@@ -55,21 +57,36 @@ func (sb *SocketBuffer) AddTCP(tcpPkg *layers.TCP) {
 		slog.Debug("SocketBuffer.AddTCP, satisfy the conditions, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 			sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 		data := sb.getData()
-		slog.Debug("readTask != nil, read: %v bytes", len(data))
+		slog.Debug("push to channel: %v bytes", len(data))
 		sb.dataChannel <- data
 	}
 }
 
+func (sb *SocketBuffer) getLeftPointer() uint32 {
+	if sb.List.Len() > 0 {
+		front := sb.List.Front()
+		return front.Key().(uint32)
+	}
+	return math.MaxUint32
+}
+
 func (sb *SocketBuffer) addTCP(tcpPkg *layers.TCP) {
+	slog.Debug("[start]SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
+		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
+
 	sb.lock.Lock()
 	defer sb.lock.Unlock()
+
+	// duplicate package
+	if int64(tcpPkg.Seq) < sb.leftPointer || sb.List.Get(tcpPkg.Seq) != nil {
+		slog.Debug("[end]SocketBuffer.addTCP-duplicate package, size:%v, actualCanReadSize:%v, expectedSeq:%v",
+			sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
+		return
+	}
 
 	ele := sb.List.Set(tcpPkg.Seq, tcpPkg)
 	sb.size += uint32(len(tcpPkg.Payload))
 
-	if sb.expectedSeq == -1 {
-		sb.expectedSeq = int64(tcpPkg.Seq)
-	}
 	for ele != nil && sb.expectedSeq == int64(tcpPkg.Seq) {
 		// expect next sequence number
 		sb.expectedSeq = int64((tcpPkg.Seq + uint32(len(tcpPkg.Payload))) % math.MaxUint32)
@@ -80,12 +97,14 @@ func (sb *SocketBuffer) addTCP(tcpPkg *layers.TCP) {
 			tcpPkg = ele.Value.(*layers.TCP)
 		}
 	}
-
-	slog.Debug("SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
+	slog.Debug("[end]SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 }
 
 func (sb *SocketBuffer) getData() []byte {
+	slog.Debug("[start]SocketBuffer.getData, size:%v, actualCanReadSize:%v, expectedSeq:%v",
+		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
+
 	sb.lock.Lock()
 	defer sb.lock.Unlock()
 
@@ -100,6 +119,8 @@ func (sb *SocketBuffer) getData() []byte {
 	for ele != nil && int64(tcpPkg.Seq) <= sb.expectedSeq {
 		sb.actualCanReadSize.Store(sb.actualCanReadSize.Load() - uint32(len(tcpPkg.Payload)))
 		sb.size -= uint32(len(tcpPkg.Payload))
+		sb.leftPointer += int64(len(tcpPkg.Payload))
+
 		buf.Write(tcpPkg.Payload)
 		needRemoveList = append(needRemoveList, ele)
 
@@ -114,7 +135,7 @@ func (sb *SocketBuffer) getData() []byte {
 		sb.List.RemoveElement(element)
 	}
 
-	slog.Debug("SocketBuffer.getData, size:%v, actualCanReadSize:%v, expectedSeq:%v",
-		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
+	slog.Debug("[end]SocketBuffer.getData, size:%v, actualCanReadSize:%v, expectedSeq:%v, data: %v bytes",
+		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq, buf.Len())
 	return buf.Bytes()
 }
