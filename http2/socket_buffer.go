@@ -10,10 +10,6 @@ import (
 	"sync/atomic"
 )
 
-type ReadTask struct {
-	ch chan []byte
-}
-
 type SocketBuffer struct {
 	lock sync.Mutex
 	//The number of bytes of data currently cached
@@ -42,7 +38,7 @@ func (sb *SocketBuffer) Read(p []byte) (n int, err error) {
 	var data []byte
 	if sb.actualCanReadSize.Load() > 0 {
 		slog.Debug("SocketBuffer.Read, satisfy the conditions, size:%v, actualCanReadSize:%v, expectedSeq:%v",
-			sb.size, sb.actualCanReadSize, sb.expectedSeq)
+			sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 		data = sb.getData()
 	} else {
 		data = <-sb.dataChannel
@@ -57,7 +53,7 @@ func (sb *SocketBuffer) AddTCP(tcpPkg *layers.TCP) {
 
 	if sb.actualCanReadSize.Load() > 0 {
 		slog.Debug("SocketBuffer.AddTCP, satisfy the conditions, size:%v, actualCanReadSize:%v, expectedSeq:%v",
-			sb.size, sb.actualCanReadSize, sb.expectedSeq)
+			sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 		data := sb.getData()
 		slog.Debug("readTask != nil, read: %v bytes", len(data))
 		sb.dataChannel <- data
@@ -86,7 +82,7 @@ func (sb *SocketBuffer) addTCP(tcpPkg *layers.TCP) {
 	}
 
 	slog.Debug("SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
-		sb.size, sb.actualCanReadSize, sb.expectedSeq)
+		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 }
 
 func (sb *SocketBuffer) getData() []byte {
@@ -119,6 +115,6 @@ func (sb *SocketBuffer) getData() []byte {
 	}
 
 	slog.Debug("SocketBuffer.getData, size:%v, actualCanReadSize:%v, expectedSeq:%v",
-		sb.size, sb.actualCanReadSize, sb.expectedSeq)
+		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
 	return buf.Bytes()
 }
