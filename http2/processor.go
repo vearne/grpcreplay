@@ -1,19 +1,15 @@
 package http2
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"github.com/fullstorydev/grpcurl"
-	"google.golang.org/protobuf/types/descriptorpb"
-	"io"
-	//"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/vearne/grpcreplay/protocol"
@@ -42,47 +38,27 @@ func NewProcessor(input chan *NetPkg, svcAddr string) *Processor {
 }
 
 func (p *Processor) ProcessTCPPkg() {
-	var f *FrameBase
-	var err error
 	for pkg := range p.InputChan {
+		dc := pkg.DirectConn()
 		payload := pkg.TCP.Payload
+		slog.Debug("Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
+
+		if _, ok := p.ConnRepository[dc]; !ok {
+			p.ConnRepository[dc] = NewHttp2Conn(dc, http2initialHeaderTableSize, p)
+		}
+
+		// SYN/ACK/FIN
+		if len(payload) < HeaderSize {
+			continue
+		}
 
 		// connection preface
 		if IsConnPreface(payload) {
 			continue
 		}
 
-		dc := pkg.DirectConn()
-		slog.Debug("Connection:%v, seq:%v, length:%v", &dc, pkg.TCP.Seq, len(payload))
-
-		for len(payload) >= HeaderSize {
-			f, err = ParseFrameBase(payload)
-			if err != nil {
-				slog.Error("ProcessTCPPkg error:%v", err)
-				continue
-			}
-
-			dc = pkg.DirectConn()
-			f.DirectConn = &dc
-			slog.Debug("Connection:%v, seq:%v, FrameType:%v, length:%v, len(payload):%v, streamID:%v",
-				f.DirectConn, pkg.TCP.Seq, GetFrameType(f.Type), f.Length, len(f.Payload), f.StreamID)
-
-			var ok bool
-			if _, ok = p.ConnRepository[dc]; !ok {
-				p.ConnRepository[dc] = NewHttp2Conn(dc, http2initialHeaderTableSize)
-			}
-
-			// Separate processing according to frame type
-			p.ProcessFrame(f)
-
-			if len(payload) >= int(HeaderSize+f.Length) {
-				payload = payload[HeaderSize+f.Length:]
-			} else {
-				slog.Error("get TCP pkg:%v, seq:%v, tcp flags:%v",
-					&dc, pkg.TCP.Seq, pkg.TCPFlags())
-				payload = []byte{}
-			}
-		}
+		hc := p.ConnRepository[dc]
+		hc.SocketBuffer.AddTCP(pkg.TCP)
 	}
 }
 
@@ -98,81 +74,6 @@ func IsConnPreface(payload []byte) bool {
 	return false
 }
 
-func (p *Processor) ProcessFrame(f *FrameBase) {
-	switch f.Type {
-	case FrameTypeData:
-		// parse data
-		p.processFrameData(f)
-	case FrameTypeHeader:
-		// parse header
-		p.processFrameHeader(f)
-	case FrameTypeContinuation:
-		p.processFrameContinuation(f)
-	case FrameTypeRSTStream:
-		// close stream
-		p.processFrameRSTStream(f)
-	case FrameTypeGoAway:
-		// close connection
-		p.processFrameGoAway(f)
-	case FrameTypeSetting:
-		p.processFrameSetting(f)
-	default:
-		// ignore the frame
-		slog.Debug("ignore Frame:%v", GetFrameType(f.Type))
-	}
-}
-
-func (p *Processor) processFrameData(f *FrameBase) {
-	fd, err := ParseFrameData(f)
-	if err != nil {
-		slog.Error("ParseFrameData:%v", err)
-		return
-	}
-
-	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
-		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
-
-	hc := p.ConnRepository[*f.DirectConn]
-	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	var gzipReader *gzip.Reader
-
-	// Convert protobuf to JSON string
-	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
-		msg, _ := fd.ParseGRPCMessage()
-		// Compression is turned on
-		if msg.PayloadFormat == compressionMade {
-			slog.Debug("msg.PayloadFormat == compressionMade")
-			// only support gzip
-			gzipReader, err = gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
-			if err != nil {
-				slog.Error("processFrameData, gunzip error:%v", err)
-				return
-			}
-			msg.EncodedMessage, err = io.ReadAll(gzipReader)
-			if err != nil {
-				slog.Error("processFrameData, gunzip error:%v", err)
-				return
-			}
-		}
-
-		slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
-		_, err = stream.DataBuf.Write(msg.EncodedMessage)
-		if err != nil {
-			slog.Error("processFrameData, gunzip error:%v", err)
-		}
-	}
-
-	if fd.EndStream {
-		pMsg, pErr := stream.toMsg(p.Finder)
-		if pErr == nil {
-			p.OutputChan <- pMsg
-		}
-		stream.Reset()
-	}
-}
-
 func getCodecType(headers map[string]string) int {
 	contentType, ok := headers["content-type"]
 	if !ok || contentType == "application/grpc" {
@@ -180,122 +81,6 @@ func getCodecType(headers map[string]string) int {
 	} else {
 		return CodecOther
 	}
-}
-
-func (p *Processor) processFrameHeader(f *FrameBase) {
-	fh, err := ParseFrameHeader(f)
-	if err != nil {
-		slog.Error("ProcessFrameHeader:%v", err)
-		return
-	}
-
-	hc := p.ConnRepository[*f.DirectConn]
-	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.StreamID = f.StreamID
-	stream.EndStream = fh.EndStream
-	stream.EndHeader = fh.EndHeader
-	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
-		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream, hc.MaxDynamicTableSize)
-
-	hdec := hc.HeaderDecoder
-	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
-	fields, err := hdec.DecodeFull(fh.HeaderBlockFragment)
-	if err != nil {
-		slog.Error(err.Error())
-		return
-	}
-	for _, field := range fields {
-		stream.Headers[field.Name] = field.Value
-		if field.Name == PseudoHeaderPath {
-			stream.Method = field.Value
-		}
-		slog.Debug(field.String())
-	}
-
-	if fh.EndStream {
-		pMsg, pErr := stream.toMsg(p.Finder)
-		if pErr == nil {
-			p.OutputChan <- pMsg
-		}
-		stream.Reset()
-	}
-}
-
-func (p *Processor) processFrameSetting(f *FrameBase) {
-	fs, err := ParseFrameSetting(f)
-	if err != nil {
-		slog.Error("ParseFrameSetting:%v", err)
-		return
-	}
-	if fs.Ack {
-		return
-	}
-
-	hc := p.ConnRepository[*f.DirectConn]
-	for _, item := range fs.settings {
-		if item.ID == http2SettingHeaderTableSize {
-			slog.Warn("adjust http2SettingHeaderTableSize:%v", item.Val)
-			hc.MaxDynamicTableSize = item.Val
-			hc.HeaderDecoder.SetMaxDynamicTableSize(item.Val)
-		}
-	}
-}
-
-func (p *Processor) processFrameContinuation(f *FrameBase) {
-	fc, err := ParseFrameContinuation(f)
-	if err != nil {
-		slog.Error("ParseFrameContinuation:%v", err)
-		return
-	}
-
-	hc, ok := p.ConnRepository[*f.DirectConn]
-	if !ok {
-		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
-		return
-	}
-	// Set the state of the stream
-	index := fc.fb.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.StreamID = f.StreamID
-	stream.EndHeader = fc.EndHeader
-	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
-		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream)
-
-	hdec := hc.HeaderDecoder
-	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
-	fields, err := hdec.DecodeFull(fc.HeaderBlockFragment)
-	if err != nil {
-		slog.Error(err.Error())
-		return
-	}
-	for _, field := range fields {
-		stream.Headers[field.Name] = field.Value
-		slog.Debug(field.String())
-	}
-}
-
-func (p *Processor) processFrameGoAway(f *FrameBase) {
-	_, ok := p.ConnRepository[*f.DirectConn]
-	if !ok {
-		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
-		return
-	}
-	// remove http2Conn
-	delete(p.ConnRepository, *f.DirectConn)
-}
-
-func (p *Processor) processFrameRSTStream(f *FrameBase) {
-	hc, ok := p.ConnRepository[*f.DirectConn]
-	if !ok {
-		slog.Error("connection[%v] doesn't exist", f.DirectConn.String())
-		return
-	}
-	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.Reset()
 }
 
 type PBMessageFinder struct {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	pb "github.com/vearne/grpcreplay/example/service_proto"
 	"github.com/vearne/grpcreplay/example/service_proto/another"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -10,16 +11,14 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
-	"math/rand"
+	"strconv"
 	"time"
-
-	pb "github.com/vearne/grpcreplay/example/service_proto"
 )
 
-const PORT = "35001"
+const address = "127.0.0.1:35001"
 
 func main() {
-	conn, err := grpc.Dial(":"+PORT,
+	conn, err := grpc.Dial(address,
 		grpc.WithInsecure(),
 		//grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
 	)
@@ -30,14 +29,28 @@ func main() {
 
 	client := pb.NewSearchServiceClient(conn)
 	counter := 0
+	timeCounter := 0
+	muchCounter := 0
 	for i := 0; i < 1000000; i++ {
-		if rand.Intn(1000)%2 == 0 {
-			counter++
-			sendSearch(client, counter)
-		} else {
-			sendCurrTime(client)
-		}
-		time.Sleep(10 * time.Second)
+		//value := rand.Intn(100)
+		//if value <= 5 {
+		//	counter++
+		//	sendSearch(client, counter)
+		//} else if value <= 20 {
+		//muchCounter++
+		//	sendMuch(client, uint64(muchCounter))
+		//} else {
+		//	timeCounter++
+		//	sendCurrTime(client, uint64(timeCounter))
+		//}
+		counter++
+		sendSearch(client, counter)
+		timeCounter++
+		sendCurrTime(client, uint64(timeCounter))
+		muchCounter++
+		sendMuch(client, muchCounter)
+		//time.Sleep(100 * time.Millisecond)
+		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -76,7 +89,7 @@ func sendSearch(client pb.SearchServiceClient, i int) {
 	log.Println("resp:", string(bt))
 }
 
-func sendCurrTime(client pb.SearchServiceClient) {
+func sendCurrTime(client pb.SearchServiceClient, id uint64) {
 	md := metadata.New(map[string]string{
 		"testkey3": "testvalue3",
 		"testkey4": "testvalue4",
@@ -84,11 +97,35 @@ func sendCurrTime(client pb.SearchServiceClient) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	resp, err := client.CurrentTime(
 		ctx,
-		&pb.TimeRequest{},
+		&pb.TimeRequest{RequestId: id},
 	)
 	if err != nil {
 		log.Fatalf("client.CurrentTime err: %v", err)
 	}
+	bt, _ := json.Marshal(resp)
+	log.Println("resp:", string(bt))
+}
+
+func sendMuch(client pb.SearchServiceClient, id int) {
+	md := metadata.New(map[string]string{
+		"testkey5": "testvalue5",
+		"testkey6": "testvalue6",
+	})
+	req := &pb.MuchRequest{RequestId: uint64(id)}
+	req.Books = make([]*pb.Book, 1000)
+	for i := 0; i < 1000; i++ {
+		req.Books[i] = &pb.Book{Name: "name" + strconv.Itoa(id*1000+i), Id: int32(id)}
+	}
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	resp, err := client.SendMuchData(
+		ctx,
+		req,
+	)
+	if err != nil {
+		log.Fatalf("client.SendMuchData err: %v", err)
+	}
+
+	log.Println("id", id, resp.RequestId)
 	bt, _ := json.Marshal(resp)
 	log.Println("resp:", string(bt))
 }

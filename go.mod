@@ -29,6 +29,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/golang/mock v1.3.1 // indirect
+	github.com/huandu/skiplist v1.2.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect

@@ -1,7 +1,9 @@
 package http2
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"io"
 	"strings"
 	"time"
 
@@ -23,6 +26,7 @@ const (
 const (
 	// http://http2.github.io/http2-spec/#SettingValues
 	http2initialHeaderTableSize = 4096
+	ReadBufferSize              = 100 * 1024
 )
 
 const (
@@ -117,9 +121,12 @@ type Http2Conn struct {
 	MaxHeaderStringLen  uint32
 	HeaderDecoder       *hpack.Decoder
 	Streams             [StreamArraySize]*Stream
+	SocketBuffer        *SocketBuffer
+	Reader              *bufio.Reader
+	Processor           *Processor
 }
 
-func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32) *Http2Conn {
+func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32, p *Processor) *Http2Conn {
 	var hc Http2Conn
 	hc.DirectConn = conn
 	hc.MaxDynamicTableSize = maxDynamicTableSize
@@ -129,7 +136,222 @@ func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32) *Http2Conn {
 	for i := 0; i < StreamArraySize; i++ {
 		hc.Streams[i] = NewStream()
 	}
+	hc.SocketBuffer = NewSocketBuffer()
+	hc.Reader = bufio.NewReaderSize(hc.SocketBuffer, ReadBufferSize)
+	hc.Processor = p
+
+	go hc.deal()
 	return &hc
+}
+
+func (hc *Http2Conn) deal() {
+	slog.Debug("[start]Http2Conn.deal, Connection:%v", hc.DirectConn.String())
+
+	var err error
+	var fb *FrameBase
+	for {
+		slog.Debug("Http2Conn.deal, Connection:%v", hc.DirectConn.String())
+		buf := make([]byte, HeaderSize)
+		_, err = io.ReadFull(hc.Reader, buf)
+		if err != nil {
+			slog.Error("Http2Conn.deal, ReadFull:%v", err)
+			break
+		}
+
+		slog.Debug("Http2Conn.deal, ParseFrameBase, Connection:%v", hc.DirectConn.String())
+		fb, err = ParseFrameBase(buf)
+		if err != nil {
+			slog.Error("ProcessTCPPkg error:%v", err)
+			break
+		}
+		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v",
+			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID)
+
+		// Separate processing according to frame type
+		buf = make([]byte, fb.Length)
+		_, err = io.ReadFull(hc.Reader, buf)
+		if err != nil {
+			slog.Error("Http2Conn.deal, ReadFull:%v", err)
+			break
+		}
+		fb.Payload = buf
+		hc.ProcessFrame(fb)
+	}
+
+	slog.Debug("[end]Http2Conn.deal, Connection:%v", hc.DirectConn.String())
+}
+
+func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
+	switch f.Type {
+	case FrameTypeData:
+		// parse data
+		hc.processFrameData(f)
+	case FrameTypeHeader:
+		// parse header
+		hc.processFrameHeader(f)
+	case FrameTypeContinuation:
+		hc.processFrameContinuation(f)
+	case FrameTypeRSTStream:
+		// close stream
+		hc.processFrameRSTStream(f)
+	case FrameTypeGoAway:
+		// close connection
+		hc.processFrameGoAway(f)
+	case FrameTypeSetting:
+		hc.processFrameSetting(f)
+	default:
+		// ignore the frame
+		slog.Debug("ignore Frame:%v", GetFrameType(f.Type))
+	}
+}
+
+func (hc *Http2Conn) processFrameData(f *FrameBase) {
+	fd, err := ParseFrameData(f)
+	if err != nil {
+		slog.Error("ParseFrameData:%v", err)
+		return
+	}
+
+	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
+		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
+
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	var gzipReader *gzip.Reader
+
+	// Convert protobuf to JSON string
+	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
+		msg, _ := fd.ParseGRPCMessage()
+		// Compression is turned on
+		if msg.PayloadFormat == compressionMade {
+			slog.Debug("msg.PayloadFormat == compressionMade")
+			// only support gzip
+			gzipReader, err = gzip.NewReader(bytes.NewReader(msg.EncodedMessage))
+			if err != nil {
+				slog.Error("processFrameData, gunzip error:%v", err)
+				return
+			}
+			msg.EncodedMessage, err = io.ReadAll(gzipReader)
+			if err != nil {
+				slog.Error("processFrameData, gunzip error:%v", err)
+				return
+			}
+		}
+
+		slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
+		_, err = stream.DataBuf.Write(msg.EncodedMessage)
+		if err != nil {
+			slog.Error("processFrameData, gunzip error:%v", err)
+		}
+	}
+
+	if fd.EndStream {
+		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
+		if pErr == nil {
+			hc.Processor.OutputChan <- pMsg
+		}
+		stream.Reset()
+	}
+}
+
+func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
+	fh, err := ParseFrameHeader(f)
+	if err != nil {
+		slog.Error("ProcessFrameHeader:%v", err)
+		return
+	}
+
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+	stream.EndStream = fh.EndStream
+	stream.EndHeader = fh.EndHeader
+	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
+		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream, hc.MaxDynamicTableSize)
+
+	hdec := hc.HeaderDecoder
+	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	fields, err := hdec.DecodeFull(fh.HeaderBlockFragment)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	for _, field := range fields {
+		stream.Headers[field.Name] = field.Value
+		if field.Name == PseudoHeaderPath {
+			stream.Method = field.Value
+		}
+		slog.Debug(field.String())
+	}
+
+	if fh.EndStream {
+		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
+		if pErr == nil {
+			hc.Processor.OutputChan <- pMsg
+		}
+		stream.Reset()
+	}
+}
+
+func (hc *Http2Conn) processFrameContinuation(f *FrameBase) {
+	fc, err := ParseFrameContinuation(f)
+	if err != nil {
+		slog.Error("ParseFrameContinuation:%v", err)
+		return
+	}
+
+	// Set the state of the stream
+	index := fc.fb.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+	stream.EndHeader = fc.EndHeader
+	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
+		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream)
+
+	hdec := hc.HeaderDecoder
+	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	fields, err := hdec.DecodeFull(fc.HeaderBlockFragment)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	for _, field := range fields {
+		stream.Headers[field.Name] = field.Value
+		slog.Debug(field.String())
+	}
+}
+
+func (hc *Http2Conn) processFrameGoAway(f *FrameBase) {
+	// remove http2Conn
+	delete(hc.Processor.ConnRepository, hc.DirectConn)
+}
+
+func (hc *Http2Conn) processFrameRSTStream(f *FrameBase) {
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.Reset()
+}
+
+func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
+	fs, err := ParseFrameSetting(f)
+	if err != nil {
+		slog.Error("ParseFrameSetting:%v", err)
+		return
+	}
+	if fs.Ack {
+		return
+	}
+
+	for _, item := range fs.settings {
+		if item.ID == http2SettingHeaderTableSize {
+			slog.Warn("adjust http2SettingHeaderTableSize:%v", item.Val)
+			hc.MaxDynamicTableSize = item.Val
+			hc.HeaderDecoder.SetMaxDynamicTableSize(item.Val)
+		}
+	}
 }
 
 type Stream struct {

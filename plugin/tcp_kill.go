@@ -23,24 +23,21 @@ const (
 // srcAddr, dstAddr: TCP地址
 func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 	dstAddr string, dstPort uint16, flag uint8) {
-
-	//seq += uint32(rand.Intn(1000) + 200)
-
 	var (
 		msg       string
-		psdheader PsdHeader
+		ipheader  IPHeader
 		tcpheader TCPHeader
 		buffer    bytes.Buffer
 	)
 
-	/*填充PSD首部*/
-	psdheader.SrcAddr = inet_addr(srcAddr)
-	psdheader.DstAddr = inet_addr(dstAddr)
-	psdheader.Zero = 0
-	psdheader.ProtoType = syscall.IPPROTO_TCP
-	psdheader.TcpLength = uint16(unsafe.Sizeof(TCPHeader{})) + uint16(len(msg))
+	/*Fill IP header*/
+	ipheader.SrcAddr = inetAddr(srcAddr)
+	ipheader.DstAddr = inetAddr(dstAddr)
+	ipheader.Zero = 0
+	ipheader.ProtoType = syscall.IPPROTO_TCP
+	ipheader.TcpLength = uint16(unsafe.Sizeof(TCPHeader{})) + uint16(len(msg))
 
-	/*填充TCP首部*/
+	/*Filling TCP header*/
 	tcpheader.SrcPort = srcPort
 	tcpheader.DstPort = dstPort
 	tcpheader.SeqNum = seq
@@ -50,21 +47,21 @@ func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 	tcpheader.Window = 60000
 	tcpheader.Checksum = 0
 
-	// 只是为了计算Checksum
+	// calculate Checksum
 	// nolint: errcheck
-	binary.Write(&buffer, binary.BigEndian, psdheader)
+	binary.Write(&buffer, binary.BigEndian, ipheader)
 	// nolint: errcheck
 	binary.Write(&buffer, binary.BigEndian, tcpheader)
 	tcpheader.Checksum = CheckSum(buffer.Bytes())
-	buffer.Reset()
 
-	/*接下来清空buffer，填充实际要发送的部分*/
+	// Next, clear the buffer and fill it with the part that is actually to be sent.
+	buffer.Reset()
 	//nolint:all
 	binary.Write(&buffer, binary.BigEndian, tcpheader)
 	//nolint:all
 	binary.Write(&buffer, binary.BigEndian, msg)
 
-	/*下面的操作都是raw socket操作，大家都看得懂*/
+	/*raw socket*/
 	var (
 		sockfd int
 		addr   syscall.SockaddrInet4
@@ -100,7 +97,7 @@ type TCPHeader struct {
 	UrgentPtr uint16
 }
 
-type PsdHeader struct {
+type IPHeader struct {
 	SrcAddr   uint32
 	DstAddr   uint32
 	Zero      uint8
@@ -134,7 +131,7 @@ func IPtoByte(ipStr string) [4]byte {
 	return addr
 }
 
-func inet_addr(ipaddr string) uint32 {
+func inetAddr(ipaddr string) uint32 {
 	var (
 		segments []string = strings.Split(ipaddr, ".")
 		ip       [4]uint64

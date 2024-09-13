@@ -6,9 +6,27 @@ import "proto/common.proto";
 service SearchService {
     rpc Search(SearchRequest) returns (SearchResponse) {}
     rpc CurrentTime(TimeRequest) returns (TimeResponse) {}
+    rpc SendMuchData(MuchRequest) returns (MuchResponse) {}
 }
 
+message Book {
+    string name = 1;
+    int32 id = 2;
+}
+
+
+message MuchRequest {
+    uint64 requestId = 1;
+    repeated Book books = 2;
+}
+
+message MuchResponse {
+    uint64 requestId = 1;
+}
+
+
 message TimeRequest {
+    uint64 requestId = 1;
 }
 
 message TimeResponse {

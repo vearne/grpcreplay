@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	snapshotLen int32         = 10 * 1024 * 1024
+	snapshotLen int32         = 1024 * 1024
 	promiscuous bool          = false
 	timeout     time.Duration = 5 * time.Second
 )
@@ -66,11 +66,10 @@ func (l *DeviceListener) listen() error {
 		slog.Debug("DeviceListener.listen-connection:%v, Direction:%v",
 			&conn, http2.GetDirection(netPkg.Direction))
 		if netPkg.Direction == http2.DirIncoming {
-			//l.rawInput.outputChan <- packet
 			if l.rawInput.connSet.Has(conn) { // history connection
 				if netPkg.TCP.ACK {
 					slog.Debug("send RST, for connection:%v", &conn)
-					// 伪造一个从local -> remote的packet
+					// forge a packet from local -> remote
 					sendFakePkg(netPkg.TCP.Ack, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
 						conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), RST)
 				} else if netPkg.TCP.SYN { // // new connection
@@ -144,7 +143,7 @@ func NewRAWInput(address string) (*RAWInput, error) {
 		return nil, err
 	}
 
-	// 保存本地所有IP地址，以便后期判断包的来源
+	// save all local IP addresses to determine the source of the packet later
 	for _, itf := range itfStatList {
 		for _, addr := range itf.Addrs {
 			idx := strings.LastIndex(addr.Addr, "/")
@@ -188,7 +187,7 @@ func (i *RAWInput) Listen() {
 	}
 	i.connSet.AddAll(cons)
 	slog.Debug("history connections:%v", i.connSet)
-	// 在每个网卡启动listener
+	// start the listener on each network card
 	slog.Debug("len(i.listenerList):%v", len(i.listenerList))
 
 	for _, listener := range i.listenerList {
@@ -200,7 +199,7 @@ func (i *RAWInput) Listen() {
 		}(listener)
 	}
 
-	// 直到所有的旧有连接都退出
+	// Until all old connections are exited
 	for i.connSet.Size() > 0 {
 		time.Sleep(3 * time.Second)
 		cons, err := listAllConns(i.port)
