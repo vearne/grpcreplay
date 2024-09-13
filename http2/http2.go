@@ -164,15 +164,17 @@ func (hc *Http2Conn) deal() {
 			slog.Error("ProcessTCPPkg error:%v", err)
 			break
 		}
-		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v",
-			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID)
+		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
+			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
 		// Separate processing according to frame type
 		buf = make([]byte, fb.Length)
-		_, err = io.ReadFull(hc.Reader, buf)
-		if err != nil {
-			slog.Error("Http2Conn.deal, ReadFull:%v", err)
-			break
+		if fb.Length > 0 {
+			_, err = io.ReadFull(hc.Reader, buf)
+			if err != nil {
+				slog.Error("Http2Conn.deal, ReadFull:%v", err)
+				break
+			}
 		}
 		fb.Payload = buf
 		hc.ProcessFrame(fb)

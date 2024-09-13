@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const address = "127.0.0.1:35001"
+const address = ":35001"
 
 type SearchServer struct{}
 
@@ -49,7 +49,7 @@ func main() {
 	// 注册反射服务
 	// Register reflection service on gRPC server.
 	reflection.Register(server)
-	lis, err := net.Listen("tcp", address)
+	lis, err := net.Listen("tcp4", address)
 	if err != nil {
 		log.Fatalf("net.Listen err: %v", err)
 	}

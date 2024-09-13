@@ -157,11 +157,13 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	host = strings.TrimSpace(host)
 	if len(host) <= 0 || host == "0.0.0.0" { // all devices
 		for _, itf := range itfStatList {
+			slog.Debug("interface:%v", itf.Name)
 			deviceList = append(deviceList, itf.Name)
 		}
 	} else {
 		for _, itf := range itfStatList {
 			for _, addr := range itf.Addrs {
+				slog.Debug("interface:%v, addr:%v, host:%v", itf.Name, addr.Addr, host)
 				if strings.HasPrefix(addr.Addr, host) {
 					deviceList = append(deviceList, itf.Name)
 				}
@@ -169,6 +171,7 @@ func NewRAWInput(address string) (*RAWInput, error) {
 		}
 	}
 
+	slog.Info("deviceList:%v", deviceList)
 	i.listenerList = make([]*DeviceListener, 0)
 	for j := 0; j < len(deviceList); j++ {
 		i.listenerList = append(i.listenerList, NewDeviceListener(deviceList[j], i.port, &i))
