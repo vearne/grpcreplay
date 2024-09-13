@@ -16,9 +16,13 @@ import (
 	"time"
 )
 
-const PORT = "35001"
+const address = "127.0.0.1:35001"
 
 type SearchServer struct{}
+
+func (s SearchServer) SendMuchData(ctx context.Context, request *pb.MuchRequest) (*pb.MuchResponse, error) {
+	return &pb.MuchResponse{RequestId: request.RequestId}, nil
+}
 
 func (s SearchServer) Search(ctx context.Context, in *pb.SearchRequest) (*pb.SearchResponse, error) {
 	return &pb.SearchResponse{StaffID: 100, StaffName: in.StaffName}, nil
@@ -45,7 +49,7 @@ func main() {
 	// 注册反射服务
 	// Register reflection service on gRPC server.
 	reflection.Register(server)
-	lis, err := net.Listen("tcp", ":"+PORT)
+	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("net.Listen err: %v", err)
 	}
