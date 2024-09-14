@@ -62,14 +62,6 @@ func (sb *SocketBuffer) AddTCP(tcpPkg *layers.TCP) {
 	}
 }
 
-func (sb *SocketBuffer) getLeftPointer() uint32 {
-	if sb.List.Len() > 0 {
-		front := sb.List.Front()
-		return front.Key().(uint32)
-	}
-	return math.MaxUint32
-}
-
 func (sb *SocketBuffer) addTCP(tcpPkg *layers.TCP) {
 	slog.Debug("[start]SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 		sb.size, sb.actualCanReadSize.Load(), sb.expectedSeq)
