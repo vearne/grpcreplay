@@ -60,6 +60,7 @@ func (p *Processor) ProcessTCPPkg() {
 			continue
 		}
 
+		slog.Debug("[AddTCP]Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
 		hc.SocketBuffer.AddTCP(pkg.TCP)
 	}
 }
