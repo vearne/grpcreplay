@@ -49,7 +49,7 @@ func (p *Processor) ProcessTCPPkg() {
 		hc := p.ConnRepository[dc]
 
 		// SYN/ACK/FIN
-		if len(payload) < HeaderSize {
+		if len(payload) <= 0 {
 			continue
 		}
 
@@ -60,6 +60,7 @@ func (p *Processor) ProcessTCPPkg() {
 			continue
 		}
 
+		slog.Debug("[AddTCP]Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
 		hc.SocketBuffer.AddTCP(pkg.TCP)
 	}
 }
