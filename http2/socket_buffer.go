@@ -17,7 +17,8 @@ type SocketBuffer struct {
 	actualCanReadSize atomic.Uint32
 	List              *skiplist.SkipList
 	expectedSeq       int64
-	leftPointer       int64
+	// The sliding window contains the leftPointer
+	leftPointer int64
 
 	//There is at most one reader to read
 	dataChannel chan []byte
