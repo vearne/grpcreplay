@@ -25,6 +25,7 @@ type NetPkg struct {
 	SrcIP string
 	DstIP string
 
+	Ethernet  *layers.Ethernet
 	IPv4      *layers.IPv4
 	IPv6      *layers.IPv6
 	TCP       *layers.TCP
@@ -33,12 +34,15 @@ type NetPkg struct {
 
 func ProcessPacket(packet gopacket.Packet, ipSet *util.StringSet, port int) (*NetPkg, error) {
 	var p NetPkg
+
+	ethernet := packet.Layer(layers.LayerTypeEthernet)
 	ipLayerIPv4 := packet.Layer(layers.LayerTypeIPv4)
 	ipLayerIPv6 := packet.Layer(layers.LayerTypeIPv6)
-	if ipLayerIPv4 == nil && ipLayerIPv6 == nil {
+	if ethernet == nil || (ipLayerIPv4 == nil && ipLayerIPv6 == nil) {
 		return nil, errors.New("invalid IP package")
 	}
 
+	p.Ethernet = ethernet.(*layers.Ethernet)
 	if ipLayerIPv4 != nil {
 		p.IPv4 = ipLayerIPv4.(*layers.IPv4)
 		p.SrcIP = p.IPv4.SrcIP.String()

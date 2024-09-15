@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/vearne/grpcreplay/http2"
@@ -20,6 +21,7 @@ const (
 	snapshotLen int32         = 1024 * 1024
 	promiscuous bool          = false
 	timeout     time.Duration = 5 * time.Second
+	RSTNum                    = 3
 )
 
 type DeviceListener struct {
@@ -67,14 +69,21 @@ func (l *DeviceListener) listen() error {
 			&conn, http2.GetDirection(netPkg.Direction))
 		if netPkg.Direction == http2.DirIncoming {
 			if l.rawInput.connSet.Has(conn) { // history connection
-				if netPkg.TCP.ACK {
+				if netPkg.TCP.ACK && netPkg.IPv4 != nil {
 					slog.Debug("receive Ack package, for connection:%v, expected seq:%v, window:%v",
 						&conn, netPkg.TCP.Ack, netPkg.TCP.Window)
-					actualSeq := rand.Uint32()%uint32(netPkg.TCP.Window) + netPkg.TCP.Ack
-					slog.Debug("send RST, for connection:%v, seq:%v", &conn, actualSeq)
-					// forge a packet from local -> remote
-					sendFakePkg(actualSeq, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
-						conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), RST)
+					actualSeq := netPkg.TCP.Ack
+					for i := 0; i < RSTNum; i++ {
+						actualSeq += uint32(netPkg.TCP.Window) * uint32(i)
+						slog.Debug("send RST, for connection:%v, seq:%v", &conn, actualSeq)
+						// forge a packet from local -> remote
+						err = SendRST(netPkg.Ethernet.DstMAC, netPkg.Ethernet.SrcMAC,
+							netPkg.IPv4.DstIP, netPkg.IPv4.SrcIP, netPkg.TCP.DstPort,
+							netPkg.TCP.SrcPort, actualSeq, l.handle)
+						if err != nil {
+							slog.Error("SendRST, for connection:%v, error:%v", &conn, err)
+						}
+					}
 				} else if netPkg.TCP.SYN { // // new connection
 					slog.Debug("got SYN, remove %v from connSet", &conn)
 					l.rawInput.connSet.Remove(conn)
@@ -229,8 +238,13 @@ func (i *RAWInput) Listen() {
 			// remote -> local
 			// src -> dst
 			// Fake a packet from local -> remote
-			sendFakePkg(uint32(rand.Intn(100)), conn.DstAddr.IP, uint16(conn.DstAddr.Port),
-				conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), SYN)
+			err = SendSYN(IPtoByte(conn.DstAddr.IP), IPtoByte(conn.SrcAddr.IP),
+				layers.TCPPort(conn.DstAddr.Port),
+				layers.TCPPort(conn.SrcAddr.Port),
+				uint32(rand.Intn(100)), nil)
+			if err != nil {
+				slog.Error("SendSYN, for connection:%v, error:%v", &conn, err)
+			}
 		}
 		slog.Debug("history connections:%v", i.connSet)
 	}
@@ -266,4 +280,8 @@ func listAllConns(port int) ([]http2.DirectConn, error) {
 		}
 	}
 	return conns, nil
+}
+
+func IPtoByte(ipStr string) []byte {
+	return net.ParseIP(ipStr).To4()
 }

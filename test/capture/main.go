@@ -34,20 +34,23 @@ type ConnEntry struct {
 }
 
 var (
-	device      string = "lo0"
-	snapshotLen int32  = 1024
-	promiscuous bool   = false
+	device string = "en0"
+	//device      string = "lo0"
+	snapshotLen int32 = 1024
+	promiscuous bool  = false
 	err         error
 	timeout     time.Duration = 5 * time.Second
 	handle      *pcap.Handle
 )
 
 func main() {
+	port := 9000
+
 	go func() {
-		killAllConn()
+		killAllConn(port)
 	}()
 	time.Sleep(5 * time.Second)
-	itemList := getAllConn(8080)
+	itemList := getAllConn(port)
 	for _, item := range itemList {
 		sendRST(10, item.dstIP, uint16(item.dstPort), item.srcIP, uint16(item.srcPort), SYN)
 	}
@@ -56,10 +59,10 @@ func main() {
 
 func getAllConn(localPort int) []*ConnEntry {
 	result := make([]*ConnEntry, 0)
-	item1 := ConnEntry{srcIP: "127.0.0.1", srcPort: 63843, dstIP: "127.0.0.1", dstPort: 8080}
+	item1 := ConnEntry{srcIP: "192.168.8.233", srcPort: 34932, dstIP: "192.168.8.218", dstPort: 9000}
 	result = append(result, &item1)
-	item2 := ConnEntry{srcIP: "127.0.0.1", srcPort: 63842, dstIP: "127.0.0.1", dstPort: 8080}
-	result = append(result, &item2)
+	//item2 := ConnEntry{srcIP: "127.0.0.1", srcPort: 63842, dstIP: "127.0.0.1", dstPort: 8080}
+	//result = append(result, &item2)
 	return result
 }
 
@@ -67,7 +70,7 @@ func fmtAddr(ipAddr net.IP, port int) string {
 	return fmt.Sprintf("%v:%v", ipAddr.String(), port)
 }
 
-func killAllConn() {
+func killAllConn(port int) {
 	// Open device
 	handle, err = pcap.OpenLive(device, snapshotLen, promiscuous, timeout)
 	if err != nil {
@@ -75,7 +78,7 @@ func killAllConn() {
 	}
 	defer handle.Close()
 	// Set filter
-	var filter string = "tcp and port 8080"
+	var filter string = fmt.Sprintf("tcp and port %v", port)
 	err = handle.SetBPFFilter(filter)
 	if err != nil {
 		log.Fatal(err)
@@ -109,15 +112,19 @@ func killAllConn() {
 			tcp, _ := tcpLayer.(*layers.TCP)
 			srcPort = tcp.SrcPort
 			dstPort = tcp.DstPort
-			if dstPort == 8080 && tcp.ACK {
+			if int(tcp.DstPort) == port && tcp.ACK {
 				ACKFlag = true
 				seq = tcp.Ack
+				if ACKFlag {
+					//var i uint32
+					for i := 0; i < 9; i++ {
+						seq += uint32(i) * uint32(tcp.Window)
+						sendRST(seq, dstIP.String(), uint16(dstPort), srcIP.String(), uint16(srcPort), RST)
+					}
+				}
 			}
 		}
-		if ACKFlag {
-			//var i uint32
-			sendRST(seq, dstIP.String(), uint16(dstPort), srcIP.String(), uint16(srcPort), RST)
-		}
+
 	}
 }
 
