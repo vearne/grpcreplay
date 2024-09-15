@@ -28,8 +28,8 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewSearchServiceClient(conn)
-	counter := 0
-	timeCounter := 0
+	//counter := 0
+	//timeCounter := 0
 	muchCounter := 0
 	for i := 0; i < 1000000; i++ {
 		//value := rand.Intn(100)
@@ -43,14 +43,14 @@ func main() {
 		//	timeCounter++
 		//	sendCurrTime(client, uint64(timeCounter))
 		//}
-		counter++
-		sendSearch(client, counter)
-		timeCounter++
-		sendCurrTime(client, uint64(timeCounter))
-		muchCounter++
+		//counter++
+		//sendSearch(client, counter)
+		//timeCounter++
+		//sendCurrTime(client, uint64(timeCounter))
+		//muchCounter++
 		sendMuch(client, muchCounter)
 		//time.Sleep(100 * time.Millisecond)
-		time.Sleep(3 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
