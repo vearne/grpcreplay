@@ -75,7 +75,7 @@ func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 	addr.Addr = IPtoByte(dstAddr)
 	addr.Port = int(dstPort)
 
-	slog.Debug("send %v , %v:%v -> %v:%v", flagStr(flag),
+	slog.Debug("send %v, %v:%v -> %v:%v", flagStr(flag),
 		srcAddr, srcPort, dstAddr, dstPort)
 	if err = syscall.Sendto(sockfd, buffer.Bytes(), 0, &addr); err != nil {
 		slog.Error("Sendto() error: %v", err)

@@ -68,9 +68,12 @@ func (l *DeviceListener) listen() error {
 		if netPkg.Direction == http2.DirIncoming {
 			if l.rawInput.connSet.Has(conn) { // history connection
 				if netPkg.TCP.ACK {
-					slog.Debug("send RST, for connection:%v", &conn)
+					slog.Debug("receive Ack package, for connection:%v, expected seq:%v, window:%v",
+						&conn, netPkg.TCP.Ack, netPkg.TCP.Window)
+					actualSeq := rand.Uint32()%uint32(netPkg.TCP.Window) + netPkg.TCP.Ack
+					slog.Debug("send RST, for connection:%v, seq:%v", &conn, actualSeq)
 					// forge a packet from local -> remote
-					sendFakePkg(netPkg.TCP.Ack, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
+					sendFakePkg(actualSeq, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
 						conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), RST)
 				} else if netPkg.TCP.SYN { // // new connection
 					slog.Debug("got SYN, remove %v from connSet", &conn)
@@ -145,10 +148,12 @@ func NewRAWInput(address string) (*RAWInput, error) {
 
 	// save all local IP addresses to determine the source of the packet later
 	for _, itf := range itfStatList {
-		for _, addr := range itf.Addrs {
-			idx := strings.LastIndex(addr.Addr, "/")
-			//slog.Debug("addr: %v", addr.Addr[0:idx])
-			i.ipSet.Add(addr.Addr[0:idx])
+		if itf.MTU > 0 {
+			for _, addr := range itf.Addrs {
+				idx := strings.LastIndex(addr.Addr, "/")
+				//slog.Debug("addr: %v", addr.Addr[0:idx])
+				i.ipSet.Add(addr.Addr[0:idx])
+			}
 		}
 	}
 
@@ -157,15 +162,19 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	host = strings.TrimSpace(host)
 	if len(host) <= 0 || host == "0.0.0.0" { // all devices
 		for _, itf := range itfStatList {
-			slog.Debug("interface:%v", itf.Name)
-			deviceList = append(deviceList, itf.Name)
+			if itf.MTU > 0 {
+				slog.Debug("interface:%v", itf.Name)
+				deviceList = append(deviceList, itf.Name)
+			}
 		}
 	} else {
 		for _, itf := range itfStatList {
-			for _, addr := range itf.Addrs {
-				slog.Debug("interface:%v, addr:%v, host:%v", itf.Name, addr.Addr, host)
-				if strings.HasPrefix(addr.Addr, host) {
-					deviceList = append(deviceList, itf.Name)
+			if itf.MTU > 0 {
+				for _, addr := range itf.Addrs {
+					slog.Debug("interface:%v, addr:%v, host:%v", itf.Name, addr.Addr, host)
+					if strings.HasPrefix(addr.Addr, host) {
+						deviceList = append(deviceList, itf.Name)
+					}
 				}
 			}
 		}
@@ -211,12 +220,10 @@ func (i *RAWInput) Listen() {
 		}
 
 		// A∩B
-		B := http2.NewConnSet()
-		B.AddAll(cons)
+		newSet := http2.NewConnSet()
+		newSet.AddAll(cons)
 
-		A := i.connSet.Clone()
-		A.RemoveAll(B)
-		i.connSet.RemoveAll(A)
+		i.connSet = i.connSet.Intersection(newSet)
 		for _, conn := range i.connSet.ToArray() {
 			// trigger challenge ack
 			// remote -> local
