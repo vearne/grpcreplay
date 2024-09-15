@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -28,27 +29,21 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewSearchServiceClient(conn)
-	//counter := 0
-	//timeCounter := 0
+	counter := 0
+	timeCounter := 0
 	muchCounter := 0
 	for i := 0; i < 1000000; i++ {
-		//value := rand.Intn(100)
-		//if value <= 5 {
-		//	counter++
-		//	sendSearch(client, counter)
-		//} else if value <= 20 {
-		//muchCounter++
-		//	sendMuch(client, uint64(muchCounter))
-		//} else {
-		//	timeCounter++
-		//	sendCurrTime(client, uint64(timeCounter))
-		//}
-		//counter++
-		//sendSearch(client, counter)
-		//timeCounter++
-		//sendCurrTime(client, uint64(timeCounter))
-		//muchCounter++
-		sendMuch(client, muchCounter)
+		value := rand.Intn(100)
+		if value <= 5 {
+			counter++
+			sendSearch(client, counter)
+		} else if value <= 20 {
+			muchCounter++
+			sendMuch(client, muchCounter)
+		} else {
+			timeCounter++
+			sendCurrTime(client, timeCounter)
+		}
 		//time.Sleep(100 * time.Millisecond)
 		time.Sleep(10 * time.Second)
 	}
@@ -89,7 +84,7 @@ func sendSearch(client pb.SearchServiceClient, i int) {
 	log.Println("resp:", string(bt))
 }
 
-func sendCurrTime(client pb.SearchServiceClient, id uint64) {
+func sendCurrTime(client pb.SearchServiceClient, id int) {
 	md := metadata.New(map[string]string{
 		"testkey3": "testvalue3",
 		"testkey4": "testvalue4",
@@ -97,7 +92,7 @@ func sendCurrTime(client pb.SearchServiceClient, id uint64) {
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	resp, err := client.CurrentTime(
 		ctx,
-		&pb.TimeRequest{RequestId: id},
+		&pb.TimeRequest{RequestId: uint64(id)},
 	)
 	if err != nil {
 		log.Fatalf("client.CurrentTime err: %v", err)

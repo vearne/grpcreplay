@@ -6,6 +6,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -55,13 +56,13 @@ func (p *Processor) ProcessTCPPkg() {
 
 		// connection preface
 		if IsConnPreface(payload) {
-			hc.SocketBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
-			hc.SocketBuffer.leftPointer = hc.SocketBuffer.expectedSeq
+			hc.TCPBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
+			hc.TCPBuffer.leftPointer = hc.TCPBuffer.expectedSeq
 			continue
 		}
 
 		slog.Debug("[AddTCP]Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
-		hc.SocketBuffer.AddTCP(pkg.TCP)
+		hc.TCPBuffer.AddTCP(pkg.TCP)
 	}
 }
 
@@ -87,7 +88,7 @@ func getCodecType(headers map[string]string) int {
 }
 
 type PBMessageFinder struct {
-	cacheMu   sync.RWMutex
+	cacheMu   sync.Mutex
 	symbolMsg map[string]proto.Message
 	// server address
 	addr string
@@ -101,12 +102,33 @@ func NewPBMessageFinder(addr string) *PBMessageFinder {
 	return &f
 }
 
+func (f *PBMessageFinder) HandleRequestToJson(svcAndMethod string, data []byte) ([]byte, error) {
+	f.cacheMu.Lock()
+	defer f.cacheMu.Unlock()
+
+	pbMsg, err := f.FindMethodInputWithCache(svcAndMethod)
+	if err != nil {
+		slog.Error("finder.FindMethodInputWithCache, error:%v", err)
+		return nil, err
+	}
+	err = proto.Unmarshal(data, pbMsg)
+	if err != nil {
+		slog.Error("method:%v, proto.Unmarshal:%v", svcAndMethod, err)
+		return nil, err
+	}
+
+	result, err := protojson.Marshal(pbMsg)
+	if err != nil {
+		slog.Error("method:%v, json.Marshal:%v", svcAndMethod, err)
+		return nil, err
+	}
+	return result, nil
+}
+
 func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) (proto.Message, error) {
 	slog.Debug("FindMethodInputWithCache, svcAndMethod:%v", svcAndMethod)
 
-	f.cacheMu.RLock()
 	m, ok := f.symbolMsg[svcAndMethod]
-	f.cacheMu.RUnlock()
 	if ok {
 		slog.Debug("FindMethodInputWithCache,svcAndMethod:%v, hit cache", svcAndMethod)
 		return m, nil
@@ -117,9 +139,7 @@ func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) (proto.M
 		return nil, err
 	}
 
-	f.cacheMu.Lock()
 	f.symbolMsg[svcAndMethod] = msg
-	f.cacheMu.Unlock()
 	return msg, nil
 }
 

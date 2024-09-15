@@ -20,7 +20,6 @@ const (
 	URG
 )
 
-// srcAddr, dstAddr: TCP地址
 func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
 	dstAddr string, dstPort uint16, flag uint8) {
 	var (
