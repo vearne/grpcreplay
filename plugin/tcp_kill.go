@@ -1,164 +1,110 @@
 package plugin
 
 import (
-	"bytes"
-	"encoding/binary"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 	slog "github.com/vearne/simplelog"
 	"net"
-	"strconv"
-	"strings"
 	"syscall"
-	"unsafe"
 )
 
-const (
-	FIN = 1 << iota
-	SYN
-	RST
-	PSH
-	ACK
-	URG
-)
+func SendSYN(srcIp, dstIp net.IP, srcPort, dstPort layers.TCPPort, seq uint32) error {
+	slog.Info("send %v:%v > %v:%v [SYN] seq %v", srcIp.String(), srcPort.String(),
+		dstIp.String(), dstPort.String(), seq)
 
-// srcAddr, dstAddr: TCP地址
-func sendFakePkg(seq uint32, srcAddr string, srcPort uint16,
-	dstAddr string, dstPort uint16, flag uint8) {
-	var (
-		msg       string
-		ipheader  IPHeader
-		tcpheader TCPHeader
-		buffer    bytes.Buffer
-	)
-
-	/*Fill IP header*/
-	ipheader.SrcAddr = inetAddr(srcAddr)
-	ipheader.DstAddr = inetAddr(dstAddr)
-	ipheader.Zero = 0
-	ipheader.ProtoType = syscall.IPPROTO_TCP
-	ipheader.TcpLength = uint16(unsafe.Sizeof(TCPHeader{})) + uint16(len(msg))
-
-	/*Filling TCP header*/
-	tcpheader.SrcPort = srcPort
-	tcpheader.DstPort = dstPort
-	tcpheader.SeqNum = seq
-	tcpheader.AckNum = 0
-	tcpheader.Offset = uint8(uint16(unsafe.Sizeof(TCPHeader{}))/4) << 4
-	tcpheader.Flag |= flag
-	tcpheader.Window = 60000
-	tcpheader.Checksum = 0
-
-	// calculate Checksum
-	// nolint: errcheck
-	binary.Write(&buffer, binary.BigEndian, ipheader)
-	// nolint: errcheck
-	binary.Write(&buffer, binary.BigEndian, tcpheader)
-	tcpheader.Checksum = CheckSum(buffer.Bytes())
-
-	// Next, clear the buffer and fill it with the part that is actually to be sent.
-	buffer.Reset()
-	//nolint:all
-	binary.Write(&buffer, binary.BigEndian, tcpheader)
-	//nolint:all
-	binary.Write(&buffer, binary.BigEndian, msg)
-
-	/*raw socket*/
-	var (
-		sockfd int
-		addr   syscall.SockaddrInet4
-		err    error
-	)
-	if sockfd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP); err != nil {
-		slog.Error("Socket() error: %v", err)
-		return
+	iPv4 := layers.IPv4{
+		SrcIP:    srcIp,
+		DstIP:    dstIp,
+		Version:  4,
+		TTL:      64,
+		Protocol: layers.IPProtocolTCP,
 	}
-	// nolint: errcheck
-	defer syscall.Shutdown(sockfd, syscall.SHUT_RDWR)
-	addr.Addr = IPtoByte(dstAddr)
-	addr.Port = int(dstPort)
 
-	slog.Debug("send %v , %v:%v -> %v:%v", flagStr(flag),
-		srcAddr, srcPort, dstAddr, dstPort)
-	if err = syscall.Sendto(sockfd, buffer.Bytes(), 0, &addr); err != nil {
-		slog.Error("Sendto() error: %v", err)
-		return
+	tcp := layers.TCP{
+		SrcPort: srcPort,
+		DstPort: dstPort,
+		Seq:     seq,
+		SYN:     true,
 	}
-	slog.Debug("Send success!")
+
+	if err := tcp.SetNetworkLayerForChecksum(&iPv4); err != nil {
+		return err
+	}
+
+	buffer := gopacket.NewSerializeBuffer()
+	options := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	if err := gopacket.SerializeLayers(buffer, options, &tcp); err != nil {
+		return err
+	}
+
+	// 创建一个原始套接字
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
+	if err != nil {
+		slog.Error("Socket creation error: %v", err)
+		return err
+	}
+	defer syscall.Close(fd)
+	// 设置目标地址
+	addr := syscall.SockaddrInet4{
+		Port: int(dstPort), // 目标端口
+	}
+	copy(addr.Addr[:], dstIp)
+	// 发送 SYN 包
+	err = syscall.Sendto(fd, buffer.Bytes(), 0, &addr)
+	if err != nil {
+		slog.Error("Sendto error: %v", err)
+		return err
+	}
+	slog.Info("SYN packet sent")
+	return nil
 }
 
-type TCPHeader struct {
-	SrcPort   uint16
-	DstPort   uint16
-	SeqNum    uint32
-	AckNum    uint32
-	Offset    uint8
-	Flag      uint8
-	Window    uint16
-	Checksum  uint16
-	UrgentPtr uint16
-}
+func SendRST(srcMac, dstMac net.HardwareAddr, srcIp, dstIp net.IP, srcPort, dstPort layers.TCPPort,
+	seq uint32, handle *pcap.Handle) error {
+	slog.Info("send %v:%v > %v:%v [RST] seq %v", srcIp.String(), srcPort.String(),
+		dstIp.String(), dstPort.String(), seq)
 
-type IPHeader struct {
-	SrcAddr   uint32
-	DstAddr   uint32
-	Zero      uint8
-	ProtoType uint8
-	TcpLength uint16
-}
-
-func flagStr(flag uint8) string {
-	m := make(map[uint8]string)
-	m[FIN] = "FIN"
-	m[SYN] = "SYN"
-	m[RST] = "RST"
-	m[PSH] = "PSH"
-	m[ACK] = "ACK"
-	m[URG] = "URG"
-
-	tmpList := make([]string, 0)
-	for _, f := range []uint8{FIN, SYN, RST, PSH, ACK, URG} {
-		if flag&f > 0 {
-			tmpList = append(tmpList, m[f])
-		}
+	eth := layers.Ethernet{
+		SrcMAC:       srcMac,
+		DstMAC:       dstMac,
+		EthernetType: layers.EthernetTypeIPv4,
 	}
-	return strings.Join(tmpList, "|")
-}
 
-func IPtoByte(ipStr string) [4]byte {
-	var addr [4]byte
-	for i, bt := range net.ParseIP(ipStr).To4() {
-		addr[i] = bt
+	iPv4 := layers.IPv4{
+		SrcIP:    srcIp,
+		DstIP:    dstIp,
+		Version:  4,
+		TTL:      64,
+		Protocol: layers.IPProtocolTCP,
 	}
-	return addr
-}
 
-func inetAddr(ipaddr string) uint32 {
-	var (
-		segments []string = strings.Split(ipaddr, ".")
-		ip       [4]uint64
-		ret      uint64
-	)
-	for i := 0; i < 4; i++ {
-		ip[i], _ = strconv.ParseUint(segments[i], 10, 64)
+	tcp := layers.TCP{
+		SrcPort: srcPort,
+		DstPort: dstPort,
+		Seq:     seq,
+		RST:     true,
 	}
-	ret = ip[3]<<24 + ip[2]<<16 + ip[1]<<8 + ip[0]
-	return uint32(ret)
-}
 
-func CheckSum(data []byte) uint16 {
-	var (
-		sum    uint32
-		length int = len(data)
-		index  int
-	)
-	for length > 1 {
-		sum += uint32(data[index])<<8 + uint32(data[index+1])
-		index += 2
-		length -= 2
+	if err := tcp.SetNetworkLayerForChecksum(&iPv4); err != nil {
+		return err
 	}
-	if length > 0 {
-		sum += uint32(data[index])
-	}
-	sum += (sum >> 16)
 
-	return uint16(^sum)
+	buffer := gopacket.NewSerializeBuffer()
+	options := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	if err := gopacket.SerializeLayers(buffer, options, &eth, &iPv4, &tcp); err != nil {
+		return err
+	}
+
+	err := handle.WritePacketData(buffer.Bytes())
+	if err != nil {
+		return err
+	}
+	return nil
 }

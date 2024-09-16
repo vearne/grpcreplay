@@ -10,7 +10,7 @@ import (
 
 func TestSocketBufferSequence1(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
-	buffer := NewSocketBuffer()
+	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
 	buffer.leftPointer = 1000
 
@@ -42,7 +42,7 @@ func TestSocketBufferSequence1(t *testing.T) {
 
 func TestSocketBufferSequence2(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
-	buffer := NewSocketBuffer()
+	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
 	buffer.leftPointer = 1000
 
@@ -78,7 +78,7 @@ func TestSocketBufferSequence2(t *testing.T) {
 
 func TestSocketBufferSequence3(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
-	buffer := NewSocketBuffer()
+	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
 	buffer.leftPointer = 1000
 
@@ -114,7 +114,7 @@ func TestSocketBufferSequence3(t *testing.T) {
 
 func TestSocketBufferDuplicate(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
-	buffer := NewSocketBuffer()
+	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
 	buffer.leftPointer = 1000
 

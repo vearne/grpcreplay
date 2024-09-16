@@ -10,8 +10,6 @@ import (
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"golang.org/x/net/http2/hpack"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"io"
 	"strings"
 	"time"
@@ -121,7 +119,7 @@ type Http2Conn struct {
 	MaxHeaderStringLen  uint32
 	HeaderDecoder       *hpack.Decoder
 	Streams             [StreamArraySize]*Stream
-	SocketBuffer        *SocketBuffer
+	TCPBuffer           *TCPBuffer
 	Reader              *bufio.Reader
 	Processor           *Processor
 }
@@ -136,8 +134,8 @@ func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32, p *Processor) *Ht
 	for i := 0; i < StreamArraySize; i++ {
 		hc.Streams[i] = NewStream()
 	}
-	hc.SocketBuffer = NewSocketBuffer()
-	hc.Reader = bufio.NewReaderSize(hc.SocketBuffer, ReadBufferSize)
+	hc.TCPBuffer = NewTCPBuffer()
+	hc.Reader = bufio.NewReaderSize(hc.TCPBuffer, ReadBufferSize)
 	hc.Processor = p
 
 	go hc.deal()
@@ -379,6 +377,7 @@ func NewStream() *Stream {
 
 func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
 	var msg protocol.Message
+	var err error
 	id := uuid.Must(uuid.NewUUID())
 	msg.Meta.Version = 1
 	msg.Meta.UUID = id.String()
@@ -395,20 +394,9 @@ func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
 			return nil, errors.New("method is empty")
 		} else if !strings.Contains(s.Method, "grpc.reflection") {
 			// Note: Temporarily only handle the case where the encoding method is Protobuf
-			pbMsg, err := finder.FindMethodInputWithCache(s.Method)
+			s.Request, err = finder.HandleRequestToJson(s.Method, s.DataBuf.Bytes())
 			if err != nil {
-				slog.Error("finder.FindMethodInputWithCache, error:%v", err)
-				return nil, err
-			}
-			err = proto.Unmarshal(s.DataBuf.Bytes(), pbMsg)
-			if err != nil {
-				slog.Error("method:%v, proto.Unmarshal:%v", s.Method, err)
-				return nil, err
-			}
-
-			s.Request, err = protojson.Marshal(pbMsg)
-			if err != nil {
-				slog.Error("method:%v, json.Marshal:%v", s.Method, err)
+				slog.Error("method:%v, HandleRequestToJson:%v", s.Method, err)
 				return nil, err
 			}
 		}

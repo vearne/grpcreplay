@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/vearne/grpcreplay/http2"
@@ -20,6 +21,7 @@ const (
 	snapshotLen int32         = 1024 * 1024
 	promiscuous bool          = false
 	timeout     time.Duration = 5 * time.Second
+	RSTNum                    = 3
 )
 
 type DeviceListener struct {
@@ -67,11 +69,21 @@ func (l *DeviceListener) listen() error {
 			&conn, http2.GetDirection(netPkg.Direction))
 		if netPkg.Direction == http2.DirIncoming {
 			if l.rawInput.connSet.Has(conn) { // history connection
-				if netPkg.TCP.ACK {
-					slog.Debug("send RST, for connection:%v", &conn)
-					// forge a packet from local -> remote
-					sendFakePkg(netPkg.TCP.Ack, conn.DstAddr.IP, uint16(conn.DstAddr.Port),
-						conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), RST)
+				if netPkg.TCP.ACK && netPkg.IPv4 != nil {
+					slog.Debug("receive Ack package, for connection:%v, expected seq:%v, window:%v",
+						&conn, netPkg.TCP.Ack, netPkg.TCP.Window)
+					actualSeq := netPkg.TCP.Ack
+					for i := 0; i < RSTNum; i++ {
+						actualSeq += uint32(netPkg.TCP.Window) * uint32(i)
+						slog.Debug("send RST, for connection:%v, seq:%v", &conn, actualSeq)
+						// forge a packet from local -> remote
+						err = SendRST(netPkg.Ethernet.DstMAC, netPkg.Ethernet.SrcMAC,
+							netPkg.IPv4.DstIP, netPkg.IPv4.SrcIP, netPkg.TCP.DstPort,
+							netPkg.TCP.SrcPort, actualSeq, l.handle)
+						if err != nil {
+							slog.Error("SendRST, for connection:%v, error:%v", &conn, err)
+						}
+					}
 				} else if netPkg.TCP.SYN { // // new connection
 					slog.Debug("got SYN, remove %v from connSet", &conn)
 					l.rawInput.connSet.Remove(conn)
@@ -145,10 +157,12 @@ func NewRAWInput(address string) (*RAWInput, error) {
 
 	// save all local IP addresses to determine the source of the packet later
 	for _, itf := range itfStatList {
-		for _, addr := range itf.Addrs {
-			idx := strings.LastIndex(addr.Addr, "/")
-			//slog.Debug("addr: %v", addr.Addr[0:idx])
-			i.ipSet.Add(addr.Addr[0:idx])
+		if itf.MTU > 0 {
+			for _, addr := range itf.Addrs {
+				idx := strings.LastIndex(addr.Addr, "/")
+				//slog.Debug("addr: %v", addr.Addr[0:idx])
+				i.ipSet.Add(addr.Addr[0:idx])
+			}
 		}
 	}
 
@@ -157,15 +171,19 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	host = strings.TrimSpace(host)
 	if len(host) <= 0 || host == "0.0.0.0" { // all devices
 		for _, itf := range itfStatList {
-			slog.Debug("interface:%v", itf.Name)
-			deviceList = append(deviceList, itf.Name)
+			if itf.MTU > 0 {
+				slog.Debug("interface:%v", itf.Name)
+				deviceList = append(deviceList, itf.Name)
+			}
 		}
 	} else {
 		for _, itf := range itfStatList {
-			for _, addr := range itf.Addrs {
-				slog.Debug("interface:%v, addr:%v, host:%v", itf.Name, addr.Addr, host)
-				if strings.HasPrefix(addr.Addr, host) {
-					deviceList = append(deviceList, itf.Name)
+			if itf.MTU > 0 {
+				for _, addr := range itf.Addrs {
+					slog.Debug("interface:%v, addr:%v, host:%v", itf.Name, addr.Addr, host)
+					if strings.HasPrefix(addr.Addr, host) {
+						deviceList = append(deviceList, itf.Name)
+					}
 				}
 			}
 		}
@@ -211,19 +229,22 @@ func (i *RAWInput) Listen() {
 		}
 
 		// A∩B
-		B := http2.NewConnSet()
-		B.AddAll(cons)
+		newSet := http2.NewConnSet()
+		newSet.AddAll(cons)
 
-		A := i.connSet.Clone()
-		A.RemoveAll(B)
-		i.connSet.RemoveAll(A)
+		i.connSet = i.connSet.Intersection(newSet)
 		for _, conn := range i.connSet.ToArray() {
 			// trigger challenge ack
 			// remote -> local
 			// src -> dst
 			// Fake a packet from local -> remote
-			sendFakePkg(uint32(rand.Intn(100)), conn.DstAddr.IP, uint16(conn.DstAddr.Port),
-				conn.SrcAddr.IP, uint16(conn.SrcAddr.Port), SYN)
+			err = SendSYN(IPtoByte(conn.DstAddr.IP), IPtoByte(conn.SrcAddr.IP),
+				layers.TCPPort(conn.DstAddr.Port),
+				layers.TCPPort(conn.SrcAddr.Port),
+				uint32(rand.Intn(100)))
+			if err != nil {
+				slog.Error("SendSYN, for connection:%v, error:%v", &conn, err)
+			}
 		}
 		slog.Debug("history connections:%v", i.connSet)
 	}
@@ -259,4 +280,8 @@ func listAllConns(port int) ([]http2.DirectConn, error) {
 		}
 	}
 	return conns, nil
+}
+
+func IPtoByte(ipStr string) []byte {
+	return net.ParseIP(ipStr).To4()
 }
