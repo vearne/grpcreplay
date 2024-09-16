@@ -6,11 +6,13 @@ import (
 	"github.com/google/gopacket/pcap"
 	slog "github.com/vearne/simplelog"
 	"net"
+	"syscall"
 )
 
-func SendSYN(srcIp, dstIp net.IP, srcPort, dstPort layers.TCPPort, seq uint32, handle *pcap.Handle) error {
+func SendSYN(srcIp, dstIp net.IP, srcPort, dstPort layers.TCPPort, seq uint32) error {
 	slog.Info("send %v:%v > %v:%v [SYN] seq %v", srcIp.String(), srcPort.String(),
 		dstIp.String(), dstPort.String(), seq)
+
 	iPv4 := layers.IPv4{
 		SrcIP:    srcIp,
 		DstIP:    dstIp,
@@ -39,10 +41,25 @@ func SendSYN(srcIp, dstIp net.IP, srcPort, dstPort layers.TCPPort, seq uint32, h
 		return err
 	}
 
-	err := handle.WritePacketData(buffer.Bytes())
+	// 创建一个原始套接字
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if err != nil {
+		slog.Error("Socket creation error: %v", err)
 		return err
 	}
+	defer syscall.Close(fd)
+	// 设置目标地址
+	addr := syscall.SockaddrInet4{
+		Port: int(dstPort), // 目标端口
+	}
+	copy(addr.Addr[:], dstIp)
+	// 发送 SYN 包
+	err = syscall.Sendto(fd, buffer.Bytes(), 0, &addr)
+	if err != nil {
+		slog.Error("Sendto error: %v", err)
+		return err
+	}
+	slog.Info("SYN packet sent")
 	return nil
 }
 

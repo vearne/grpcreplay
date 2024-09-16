@@ -241,7 +241,7 @@ func (i *RAWInput) Listen() {
 			err = SendSYN(IPtoByte(conn.DstAddr.IP), IPtoByte(conn.SrcAddr.IP),
 				layers.TCPPort(conn.DstAddr.Port),
 				layers.TCPPort(conn.SrcAddr.Port),
-				uint32(rand.Intn(100)), nil)
+				uint32(rand.Intn(100)))
 			if err != nil {
 				slog.Error("SendSYN, for connection:%v, error:%v", &conn, err)
 			}
