@@ -6,6 +6,7 @@ import (
 	"github.com/huandu/skiplist"
 	slog "github.com/vearne/simplelog"
 	"math"
+	"net"
 )
 
 type TCPBuffer struct {
@@ -19,6 +20,7 @@ type TCPBuffer struct {
 
 	//There is at most one reader to read
 	dataChannel chan []byte
+	closeChan   chan struct{}
 }
 
 func NewTCPBuffer() *TCPBuffer {
@@ -29,15 +31,25 @@ func NewTCPBuffer() *TCPBuffer {
 	sb.expectedSeq = -1
 	sb.leftPointer = -1
 	sb.dataChannel = make(chan []byte, 10)
+	sb.closeChan = make(chan struct{})
 	return &sb
+}
+
+func (sb *TCPBuffer) Close() {
+	close(sb.closeChan)
 }
 
 // may block
 func (sb *TCPBuffer) Read(p []byte) (n int, err error) {
-	data := <-sb.dataChannel
-	n = copy(p, data)
+	var data []byte
+	select {
+	case <-sb.closeChan:
+		err = net.ErrClosed
+	case data = <-sb.dataChannel:
+		n = copy(p, data)
+	}
 	slog.Debug("SocketBuffer.Read, got:%v bytes", n)
-	return n, nil
+	return n, err
 }
 
 func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
