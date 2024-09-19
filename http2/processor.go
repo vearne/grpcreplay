@@ -52,8 +52,12 @@ func (p *Processor) ProcessTCPPkg() {
 		// SYN/ACK/FIN
 		if len(payload) <= 0 {
 			if pkg.TCP.FIN {
+				slog.Info("got Fin package, close connection:%v", dc.String())
 				hc.TCPBuffer.Close()
 				delete(p.ConnRepository, dc)
+			} else {
+				hc.TCPBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
+				hc.TCPBuffer.leftPointer = hc.TCPBuffer.expectedSeq
 			}
 			continue
 		}
