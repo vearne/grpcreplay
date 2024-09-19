@@ -51,6 +51,10 @@ func (p *Processor) ProcessTCPPkg() {
 
 		// SYN/ACK/FIN
 		if len(payload) <= 0 {
+			if pkg.TCP.FIN {
+				hc.TCPBuffer.Close()
+				delete(p.ConnRepository, dc)
+			}
 			continue
 		}
 
