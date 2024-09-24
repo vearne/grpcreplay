@@ -154,6 +154,7 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 11)支持从RocketMQ中读取GRPC请求
 * [x] 12)支持自定义filter
 * [ ] 13)支持TLS
+* [ ] 14)优化output_grpc的处理速度
 
 ## 捐赠
 ![donate](https://github.com/vearne/grpcreplay/raw/main/img/donate.jpg)
