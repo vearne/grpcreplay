@@ -89,6 +89,10 @@ sudo -s
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
+提示: 你可以使用 `input-file-replay-speed` 加快重放的速度
+```
+--input-file-replay-speed=10
+```
 
 捕获"127.0.0.1:35001"上的gRPC请求，只保留method后缀为Time的请求，并打印在控制台中
 ```
@@ -154,7 +158,7 @@ export SIMPLE_LOG_LEVEL=debug
 * [x] 11)支持从RocketMQ中读取GRPC请求
 * [x] 12)支持自定义filter
 * [ ] 13)支持TLS
-* [ ] 14)优化output_grpc的处理速度
+* [x] 14)优化output_grpc的处理速度
 
 ## 捐赠
 ![donate](https://github.com/vearne/grpcreplay/raw/main/img/donate.jpg)

@@ -92,6 +92,10 @@ and printed in the console
 ```
 ./grpcr --input-file-directory="/tmp/mycapture" --output-stdout --output-grpc="grpc://127.0.0.1:35002"
 ```
+Hint: You can use `input-file-replay-speed` to speed up the replay
+```
+--input-file-replay-speed=10
+```
 
 Capture gRPC requests on "127.0.0.1:35001", 
 keep only requests whose method suffix is Time, and print them in the console
@@ -159,7 +163,7 @@ and [buger/goreplay](https://github.com/buger/goreplay)
 * [x] 11)Support for reading GRPC requests from RocketMQ
 * [x] 12)Support custom filter
 * [ ] 13)support TLS
-* [ ] 14)Optimize the processing speed of output_grpc
+* [x] 14)Optimize the processing speed of output_grpc
 
 ## donate
 ![donate](https://github.com/vearne/grpcreplay/raw/main/img/donate.jpg)

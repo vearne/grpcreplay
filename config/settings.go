@@ -73,6 +73,8 @@ type AppSettings struct {
 	// ######################## output ########################
 	OutputStdout bool     `json:"output-stdout"`
 	OutputGRPC   []string `json:"output-grpc"`
+	// multiple workers call services concurrently
+	OutputGRPCWorkerNumber int `json:"output-grpc-worker-number"`
 
 	// --- outputfile ---
 	OutputFileDir []string `json:"output-file-directory"`
