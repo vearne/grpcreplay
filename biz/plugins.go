@@ -57,7 +57,7 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if err != nil {
 			slog.Fatal("OutputGRPC addr error:%v", err)
 		}
-		plugins.registerPlugin(plugin.NewGRPCOutput, addr)
+		plugins.registerPlugin(plugin.NewGRPCOutput, addr, settings.OutputGRPCWorkerNumber)
 	}
 
 	for _, path := range settings.OutputFileDir {

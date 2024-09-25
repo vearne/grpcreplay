@@ -75,6 +75,9 @@ func init() {
 			    # Redirect all incoming requests to xxx.com address
                 grpcr --input-raw="0.0.0.0:80" --output-grpc="grpc://xx.xx.xx.xx:35001")`)
 
+	flag.IntVar(&settings.OutputGRPCWorkerNumber, "output-grpc-worker-number", 5,
+		"multiple workers call services concurrently")
+
 	flag.Var(&config.MultiStringOption{Params: &settings.OutputFileDir},
 		"output-file-directory",
 		`Write incoming requests to file:
