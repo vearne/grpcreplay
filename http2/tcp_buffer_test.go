@@ -12,7 +12,6 @@ func TestSocketBufferSequence1(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
 	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
-	buffer.leftPointer = 1000
 
 	var tcpPkgA layers.TCP
 	tcpPkgA.Seq = 1000
@@ -44,7 +43,6 @@ func TestSocketBufferSequence2(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
 	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
-	buffer.leftPointer = 1000
 
 	var tcpPkgA layers.TCP
 	tcpPkgA.Seq = 1000
@@ -80,7 +78,6 @@ func TestSocketBufferSequence3(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
 	buffer := NewTCPBuffer()
 	buffer.expectedSeq = 1000
-	buffer.leftPointer = 1000
 
 	var tcpPkgA layers.TCP
 	tcpPkgA.Seq = 1000
@@ -112,28 +109,88 @@ func TestSocketBufferSequence3(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestSocketBufferDuplicate(t *testing.T) {
+func TestSocketBufferWrapAround1(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
 	buffer := NewTCPBuffer()
-	buffer.expectedSeq = 1000
-	buffer.leftPointer = 1000
+	buffer.expectedSeq = 4294967290
 
 	var tcpPkgA layers.TCP
-	tcpPkgA.Seq = 1000
+	tcpPkgA.Seq = 4294967290
 	tcpPkgA.Payload = []byte("aaaaaaaaaa")
 
 	var tcpPkgB layers.TCP
-	tcpPkgB.Seq = 1010
+	tcpPkgB.Seq = 4
 	tcpPkgB.Payload = []byte("bbbbbbbbbb")
 
 	var tcpPkgC layers.TCP
-	tcpPkgC.Seq = 1020
+	tcpPkgC.Seq = 14
 	tcpPkgC.Payload = []byte("cccccccccc")
 
 	buffer.AddTCP(&tcpPkgA)
 	buffer.AddTCP(&tcpPkgC)
 	buffer.AddTCP(&tcpPkgB)
 	buffer.AddTCP(&tcpPkgA)
+
+	buf := make([]byte, 1024)
+	n, err := io.ReadAtLeast(buffer, buf, 30)
+	// assert equality
+	assert.Equal(t, 30, n, "read data")
+	assert.Equal(t, "aaaaaaaaaabbbbbbbbbbcccccccccc", string(buf[0:n]), "read data")
+	// assert for nil (good for errors)
+	assert.Nil(t, err)
+}
+
+func TestSocketBufferWrapAround2(t *testing.T) {
+	slog.SetLevel(slog.DebugLevel)
+	buffer := NewTCPBuffer()
+	buffer.expectedSeq = 4294967290
+
+	var tcpPkgA layers.TCP
+	tcpPkgA.Seq = 4294967290
+	tcpPkgA.Payload = []byte("aaaaaaaaaa")
+
+	var tcpPkgB layers.TCP
+	tcpPkgB.Seq = 4
+	tcpPkgB.Payload = []byte("bbbbbbbbbb")
+
+	var tcpPkgC layers.TCP
+	tcpPkgC.Seq = 14
+	tcpPkgC.Payload = []byte("cccccccccc")
+
+	buffer.AddTCP(&tcpPkgB)
+	buffer.AddTCP(&tcpPkgA)
+	buffer.AddTCP(&tcpPkgC)
+	buffer.AddTCP(&tcpPkgA)
+
+	buf := make([]byte, 1024)
+	n, err := io.ReadAtLeast(buffer, buf, 30)
+	// assert equality
+	assert.Equal(t, 30, n, "read data")
+	assert.Equal(t, "aaaaaaaaaabbbbbbbbbbcccccccccc", string(buf[0:n]), "read data")
+	// assert for nil (good for errors)
+	assert.Nil(t, err)
+}
+
+func TestSocketBufferWrapAround3(t *testing.T) {
+	slog.SetLevel(slog.DebugLevel)
+	buffer := NewTCPBuffer()
+	buffer.expectedSeq = 4294967290
+
+	var tcpPkgA layers.TCP
+	tcpPkgA.Seq = 4294967290
+	tcpPkgA.Payload = []byte("aaaaaaaaaa")
+
+	var tcpPkgB layers.TCP
+	tcpPkgB.Seq = 4
+	tcpPkgB.Payload = []byte("bbbbbbbbbb")
+
+	var tcpPkgC layers.TCP
+	tcpPkgC.Seq = 14
+	tcpPkgC.Payload = []byte("cccccccccc")
+
+	buffer.AddTCP(&tcpPkgA)
+	buffer.AddTCP(&tcpPkgB)
+	buffer.AddTCP(&tcpPkgC)
 
 	buf := make([]byte, 1024)
 	n, err := io.ReadAtLeast(buffer, buf, 30)

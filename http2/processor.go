@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
+	"math"
 
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
@@ -49,6 +50,8 @@ func (p *Processor) ProcessTCPPkg() {
 		}
 		hc := p.ConnRepository[dc]
 
+		payloadSize := uint32(len(payload))
+
 		// SYN/ACK/FIN
 		if len(payload) <= 0 {
 			if pkg.TCP.FIN {
@@ -56,16 +59,14 @@ func (p *Processor) ProcessTCPPkg() {
 				hc.TCPBuffer.Close()
 				delete(p.ConnRepository, dc)
 			} else {
-				hc.TCPBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
-				hc.TCPBuffer.leftPointer = hc.TCPBuffer.expectedSeq
+				hc.TCPBuffer.expectedSeq = (pkg.TCP.Seq + payloadSize) % math.MaxUint32
 			}
 			continue
 		}
 
 		// connection preface
 		if IsConnPreface(payload) {
-			hc.TCPBuffer.expectedSeq = int64(pkg.TCP.Seq) + int64(len(pkg.TCP.Payload))
-			hc.TCPBuffer.leftPointer = hc.TCPBuffer.expectedSeq
+			hc.TCPBuffer.expectedSeq = (pkg.TCP.Seq + payloadSize) % math.MaxUint32
 			continue
 		}
 
