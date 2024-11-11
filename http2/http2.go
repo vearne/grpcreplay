@@ -152,7 +152,7 @@ func (hc *Http2Conn) deal() {
 		buf := make([]byte, HeaderSize)
 		_, err = io.ReadFull(hc.Reader, buf)
 		if err != nil {
-			slog.Error("Http2Conn.deal, ReadFull:%v", err)
+			slog.Warn("Http2Conn.deal, ReadFull:%v", err)
 			break
 		}
 
@@ -170,7 +170,7 @@ func (hc *Http2Conn) deal() {
 		if fb.Length > 0 {
 			_, err = io.ReadFull(hc.Reader, buf)
 			if err != nil {
-				slog.Error("Http2Conn.deal, ReadFull:%v", err)
+				slog.Warn("Http2Conn.deal, ReadFull:%v", err)
 				break
 			}
 		}

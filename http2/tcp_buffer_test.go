@@ -200,3 +200,25 @@ func TestSocketBufferWrapAround3(t *testing.T) {
 	// assert for nil (good for errors)
 	assert.Nil(t, err)
 }
+
+func TestValidPackage(t *testing.T) {
+	testCases := []struct {
+		expectedSeq   uint32
+		maxWindowSize uint32
+		pkgSeq        uint32
+		expected      bool
+	}{
+		// case 1
+		{4294966995, 10000, 4294967095, true},
+		{4294966995, 10000, 9500, true},
+		{4294966995, 10000, 4294946995, false},
+		// case 2
+		{10000, 10000, 10200, true},
+		{10000, 10000, 3000, false},
+		{10000, 10000, 20300, false},
+	}
+	for _, testCase := range testCases {
+		actual := validPackage(testCase.expectedSeq, testCase.maxWindowSize, testCase.pkgSeq)
+		assert.Equal(t, testCase.expected, actual, "Not consistent with expectations")
+	}
+}

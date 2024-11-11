@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 )
 
+const MaxWindowSize = 65536
+
 type TCPBuffer struct {
 	//The number of bytes of data currently cached
 	size              atomic.Int64
@@ -55,6 +57,14 @@ func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
 	slog.Debug("[start]SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 		sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
 
+	// Discard packets outside the sliding window
+	if !validPackage(sb.expectedSeq, MaxWindowSize, tcpPkg.Seq) {
+		slog.Debug("[end]SocketBuffer.addTCP-discard packets outside the sliding window, "+
+			"size:%v, actualCanReadSize:%v, expectedSeq:%v",
+			sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
+		return
+	}
+
 	// duplicate package
 	if sb.List.Get(tcpPkg.Seq) != nil {
 		slog.Debug("[end]SocketBuffer.addTCP-duplicate package, size:%v, actualCanReadSize:%v, expectedSeq:%v",
@@ -90,4 +100,22 @@ func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
 
 	slog.Debug("[end]SocketBuffer.addTCP, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 		sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
+}
+
+func validPackage(expectedSeq uint32, maxWindowSize uint32, pkgSeq uint32) bool {
+	rightBorder := (expectedSeq + maxWindowSize) % math.MaxUint32
+	// case 1: sequence wrap around
+	if rightBorder < expectedSeq {
+		if (pkgSeq <= rightBorder) || (pkgSeq >= expectedSeq) {
+			return true
+		} else {
+			return false
+		}
+	} else { // case 2
+		if pkgSeq >= expectedSeq && pkgSeq <= expectedSeq+maxWindowSize {
+			return true
+		} else {
+			return false
+		}
+	}
 }
