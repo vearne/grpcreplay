@@ -14,9 +14,9 @@ type Message struct {
 		Timestamp       int64 `json:"timestamp"`
 		ContainResponse bool  `json:"containResponse"`
 	}
-	Method   string `json:"method"`
-	Request  *MsgItem
-	Response *MsgItem
+	Method   string   `json:"method"`
+	Request  *MsgItem `json:"request"`
+	Response *MsgItem `json:"response"`
 }
 
 type MsgItem struct {

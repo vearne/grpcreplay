@@ -1,9 +1,11 @@
 package http2
 
 import (
+	"bytes"
 	"github.com/google/gopacket/layers"
 	"github.com/huandu/skiplist"
 	slog "github.com/vearne/simplelog"
+	"io"
 	"math"
 	"net"
 	"sync/atomic"
@@ -20,6 +22,7 @@ type TCPBuffer struct {
 	//There is at most one reader to read
 	dataChannel chan []byte
 	closeChan   chan struct{}
+	buffer      *bytes.Buffer
 }
 
 func NewTCPBuffer() *TCPBuffer {
@@ -30,6 +33,7 @@ func NewTCPBuffer() *TCPBuffer {
 	sb.expectedSeq = 0
 	sb.dataChannel = make(chan []byte, 100)
 	sb.closeChan = make(chan struct{})
+	sb.buffer = bytes.NewBuffer([]byte{})
 	return &sb
 }
 
@@ -39,16 +43,24 @@ func (sb *TCPBuffer) Close() {
 
 // may block
 func (sb *TCPBuffer) Read(p []byte) (n int, err error) {
-	var data []byte
+	if sb.buffer.Len() > 0 {
+		n, err := sb.buffer.Read(p)
+		if err != io.EOF {
+			return n, err
+		}
+	}
+
 	select {
 	case <-sb.closeChan:
 		err = net.ErrClosed
-	case data = <-sb.dataChannel:
-		n = copy(p, data)
-		dataSize := int64(len(data))
-		sb.size.Add(dataSize * -1)
-		sb.actualCanReadSize.Add(dataSize * -1)
+		return 0, err
+	case data := <-sb.dataChannel:
+		sb.buffer.Write(data)
 	}
+
+	n, err = sb.buffer.Read(p)
+	sb.size.Add(int64(n) * -1)
+	sb.actualCanReadSize.Add(int64(n) * -1)
 	slog.Debug("SocketBuffer.Read, got:%v bytes", n)
 	return n, err
 }

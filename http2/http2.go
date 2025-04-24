@@ -1,7 +1,6 @@
 package http2
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
@@ -25,7 +24,6 @@ const (
 const (
 	// http://http2.github.io/http2-spec/#SettingValues
 	http2initialHeaderTableSize = 4096
-	ReadBufferSize              = 100 * 1024
 )
 
 const (
@@ -130,7 +128,6 @@ type Http2Conn struct {
 
 type MessageParser struct {
 	TCPBuffer           *TCPBuffer
-	Reader              *bufio.Reader
 	MaxDynamicTableSize uint32
 	HeaderDecoder       *hpack.Decoder
 }
@@ -140,7 +137,6 @@ func NewMessageParser(maxDynamicTableSize uint32) *MessageParser {
 	p.MaxDynamicTableSize = maxDynamicTableSize
 	p.HeaderDecoder = hpack.NewDecoder(maxDynamicTableSize, nil)
 	p.TCPBuffer = NewTCPBuffer()
-	p.Reader = bufio.NewReaderSize(p.TCPBuffer, ReadBufferSize)
 	return &p
 }
 
@@ -176,7 +172,7 @@ func (hc *Http2Conn) DealOutput() {
 	for {
 		slog.Debug("Http2Conn.DealOutput, Connection:%v", dc.String())
 		buf := make([]byte, HeaderSize)
-		_, err = io.ReadFull(hc.Output.Reader, buf)
+		_, err = io.ReadFull(hc.Output.TCPBuffer, buf)
 		if err != nil {
 			slog.Warn("Http2Conn.DealOutput, ReadFull:%v", err)
 			break
@@ -194,7 +190,7 @@ func (hc *Http2Conn) DealOutput() {
 		// Separate processing according to frame type
 		buf = make([]byte, 0, fb.Length)
 		if fb.Length > 0 {
-			_, err = io.ReadFull(hc.Output.Reader, buf)
+			_, err = io.ReadFull(hc.Output.TCPBuffer, buf)
 			if err != nil {
 				slog.Warn("Http2Conn.DealOutput, ReadFull:%v", err)
 				break
@@ -213,7 +209,7 @@ func (hc *Http2Conn) DealInput() {
 	for {
 		slog.Debug("Http2Conn.DealInput, Connection:%v", hc.DirectConn.String())
 		buf := make([]byte, HeaderSize)
-		_, err = io.ReadFull(hc.Input.Reader, buf)
+		_, err = io.ReadFull(hc.Input.TCPBuffer, buf)
 		if err != nil {
 			slog.Warn("Http2Conn.DealInput, ReadFull:%v", err)
 			break
@@ -231,7 +227,7 @@ func (hc *Http2Conn) DealInput() {
 		// Separate processing according to frame type
 		buf = make([]byte, fb.Length)
 		if fb.Length > 0 {
-			_, err = io.ReadFull(hc.Input.Reader, buf)
+			_, err = io.ReadFull(hc.Input.TCPBuffer, buf)
 			if err != nil {
 				slog.Warn("Http2Conn.deal, ReadFull:%v", err)
 				break
@@ -271,34 +267,35 @@ func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
 
 func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
+	stream := hc.Streams[f.StreamID%StreamArraySize]
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
 	if f.InputFlag {
-		hc._processFrameData(f, hc.Input, stream.Request)
+		hc._processFrameData(f, stream.Request)
 	} else {
-		hc._processFrameData(f, hc.Output, stream.Response)
+		hc._processFrameData(f, stream.Response)
 	}
 
 	if (!hc.RecordResponse && stream.Request.EndStream) || (hc.RecordResponse && stream.Response.EndStream) {
 		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
 		if pErr == nil {
 			hc.Processor.OutputChan <- pMsg
+		} else {
+			slog.Warn("stream.toMsg, error:%v", pErr)
 		}
 		stream.Reset()
 	}
 }
 
-func (hc *Http2Conn) _processFrameData(f *FrameBase, parser *MessageParser,
-	item *HTTPItem) {
+func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
 	fd, err := ParseFrameData(f)
 	if err != nil {
 		slog.Error("ParseFrameData:%v", err)
 		return
 	}
 
+	item.EndStream = fd.EndStream
 	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
 		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
 
@@ -385,8 +382,7 @@ func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
 
 func (hc *Http2Conn) processFrameContinuation(f *FrameBase) {
 	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
+	stream := hc.Streams[f.StreamID%StreamArraySize]
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
@@ -406,6 +402,7 @@ func (hc *Http2Conn) _processFrameContinuation(f *FrameBase,
 	}
 
 	item.EndHeader = fc.EndHeader
+
 	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
 		hc.DirectConn.String(), f.StreamID, item.EndHeader, item.EndStream)
 
@@ -435,8 +432,7 @@ func (hc *Http2Conn) processFrameRSTStream(f *FrameBase) {
 
 func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
 	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
+	stream := hc.Streams[f.StreamID%StreamArraySize]
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
@@ -577,7 +573,9 @@ func changeToJsonStr(pbMsg proto.Message, data []byte) (string, error) {
 func (s *Stream) Reset() {
 	s.StreamID = 0
 	s.Request.Reset()
-	s.Response.Reset()
+	if s.Response != nil {
+		s.Response.Reset()
+	}
 }
 
 // Frame Header
