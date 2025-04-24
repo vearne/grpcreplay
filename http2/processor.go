@@ -81,10 +81,10 @@ func (p *Processor) ProcessOutComingTCPPkg(pkg *NetPkg) {
 
 	rDirect := dc.Reverse()
 	if _, ok := p.ConnRepository[rDirect]; !ok {
-		p.ConnRepository[rDirect] = NewHttp2Conn(rDirect, http2initialHeaderTableSize, p)
+		return
 	}
-	hc := p.ConnRepository[rDirect]
 
+	hc := p.ConnRepository[rDirect]
 	payloadSize := uint32(len(payload))
 
 	// SYN/ACK/FIN

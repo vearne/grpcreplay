@@ -188,6 +188,8 @@ func (hc *Http2Conn) DealOutput() {
 			slog.Error("ProcessTCPPkg error:%v", err)
 			break
 		}
+		fb.DirectConn = hc.DirectConn.Reverse()
+		fb.InputFlag = false
 		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
 			dc.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
@@ -225,6 +227,8 @@ func (hc *Http2Conn) DealInput() {
 			slog.Error("ProcessTCPPkg error:%v", err)
 			break
 		}
+		fb.DirectConn = hc.DirectConn
+		fb.InputFlag = true
 		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
 			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
@@ -268,10 +272,6 @@ func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
 	}
 }
 
-func (hc *Http2Conn) IsInput(conn DirectConn) bool {
-	return hc.DirectConn == hc.DirectConn
-}
-
 func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	// Set the state of the stream
 	index := f.StreamID % StreamArraySize
@@ -279,8 +279,7 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
-	inputFlag := hc.IsInput(*f.DirectConn)
-	if inputFlag {
+	if f.InputFlag {
 		hc._processFrameData(f, hc.Input, stream.Request)
 	} else {
 		hc._processFrameData(f, hc.Output, stream.Response)
@@ -342,8 +341,7 @@ func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
-	inputFlag := hc.IsInput(*f.DirectConn)
-	if inputFlag {
+	if f.InputFlag {
 		hc._processFrameHeader(f, hc.Input, stream.Request)
 	} else {
 		hc._processFrameHeader(f, hc.Output, stream.Response)
@@ -395,8 +393,7 @@ func (hc *Http2Conn) processFrameContinuation(f *FrameBase) {
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
-	inputFlag := hc.IsInput(*f.DirectConn)
-	if inputFlag {
+	if f.InputFlag {
 		hc._processFrameContinuation(f, hc.Input, stream.Request)
 	} else {
 		hc._processFrameContinuation(f, hc.Output, stream.Response)
@@ -446,8 +443,7 @@ func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
 	stream.StreamID = f.StreamID
 
 	//Is it input or output?
-	inputFlag := hc.IsInput(*f.DirectConn)
-	if inputFlag {
+	if f.InputFlag {
 		hc._processFrameSetting(f, hc.Input)
 	} else {
 		hc._processFrameSetting(f, hc.Output)
@@ -589,12 +585,14 @@ func (s *Stream) Reset() {
 
 // Frame Header
 type FrameBase struct {
-	DirectConn *DirectConn
-	StreamID   uint32
-	Type       uint8
-	Flags      uint8
-	Length     uint32
-	Payload    []byte
+	DirectConn DirectConn
+	// input or output ?
+	InputFlag bool
+	StreamID  uint32
+	Type      uint8
+	Flags     uint8
+	Length    uint32
+	Payload   []byte
 }
 
 func ParseFrameBase(b []byte) (*FrameBase, error) {
