@@ -11,11 +11,15 @@ type Message struct {
 		Version int    `json:"version"`
 		UUID    string `json:"uuid"`
 		// Nanosecond
-		Timestamp int64 `json:"timestamp"`
+		Timestamp       int64 `json:"timestamp"`
+		ContainResponse bool  `json:"containResponse"`
 	}
-	Data struct {
-		Headers map[string]string `json:"headers"`
-		Method  string            `json:"method"`
-		Request string            `json:"request"`
-	}
+	Method   string `json:"method"`
+	Request  *MsgItem
+	Response *MsgItem
+}
+
+type MsgItem struct {
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
 }

@@ -115,10 +115,19 @@ func init() {
 
 	flag.StringVar(&settings.OutputRocketMQSecretKey, "output-rocketmq-secret-key",
 		"", "")
+
+	flag.BoolVar(&settings.RecordResponse, "record-response", false,
+		"record response")
 }
 
 func main() {
 	fmt.Print(banner)
+
+	// use environment variables to set log level
+	logLevel := os.Getenv("SIMPLE_LOG_LEVEL")
+	if len(logLevel) <= 0 {
+		slog.SetLevel(slog.InfoLevel)
+	}
 
 	flag.Parse()
 	if version {
@@ -178,4 +187,6 @@ func printSettings(settings *config.AppSettings) {
 	slog.Info("output-grpc, %v", settings.OutputGRPC)
 	slog.Info("output-rocketmq-name-server, %v", settings.OutputRocketMQNameServer)
 	slog.Info("output-rocketmq-topic, %v", settings.OutputRocketMQTopic)
+
+	slog.Info("record-response, %v", settings.RecordResponse)
 }

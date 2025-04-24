@@ -7,14 +7,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"golang.org/x/net/http2/hpack"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"io"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -114,49 +115,111 @@ func (s http2Setting) String() string {
 
 // http2 connection context
 type Http2Conn struct {
-	DirectConn          DirectConn
-	MaxDynamicTableSize uint32
-	MaxHeaderStringLen  uint32
-	HeaderDecoder       *hpack.Decoder
-	Streams             [StreamArraySize]*Stream
+	DirectConn DirectConn
+
+	Streams [StreamArraySize]*Stream
+	// ###### for input ######
+	Input *MessageParser
+	// ###### for output ######
+	Output *MessageParser
+
+	Processor          *Processor
+	RecordResponse     bool
+	MaxHeaderStringLen uint32
+}
+
+type MessageParser struct {
 	TCPBuffer           *TCPBuffer
 	Reader              *bufio.Reader
-	Processor           *Processor
+	MaxDynamicTableSize uint32
+	HeaderDecoder       *hpack.Decoder
+}
+
+func NewMessageParser(maxDynamicTableSize uint32) *MessageParser {
+	var p MessageParser
+	p.MaxDynamicTableSize = maxDynamicTableSize
+	p.HeaderDecoder = hpack.NewDecoder(maxDynamicTableSize, nil)
+	p.TCPBuffer = NewTCPBuffer()
+	p.Reader = bufio.NewReaderSize(p.TCPBuffer, ReadBufferSize)
+	return &p
 }
 
 func NewHttp2Conn(conn DirectConn, maxDynamicTableSize uint32, p *Processor) *Http2Conn {
 	var hc Http2Conn
 	hc.DirectConn = conn
-	hc.MaxDynamicTableSize = maxDynamicTableSize
+	hc.Input = NewMessageParser(maxDynamicTableSize)
+	hc.Output = NewMessageParser(maxDynamicTableSize)
 
 	slog.Info("create Http2Conn, MaxDynamicTableSize:%v", maxDynamicTableSize)
-	hc.HeaderDecoder = hpack.NewDecoder(maxDynamicTableSize, nil)
 	for i := 0; i < StreamArraySize; i++ {
-		hc.Streams[i] = NewStream()
+		hc.Streams[i] = NewStream(p.RecordResponse)
 	}
-	hc.TCPBuffer = NewTCPBuffer()
-	hc.Reader = bufio.NewReaderSize(hc.TCPBuffer, ReadBufferSize)
-	hc.Processor = p
 
-	go hc.deal()
+	hc.Processor = p
+	hc.RecordResponse = p.RecordResponse
+	hc.MaxHeaderStringLen = 16 << 20
+
+	go hc.DealInput()
+	if hc.RecordResponse {
+		go hc.DealOutput()
+	}
 	return &hc
 }
 
-func (hc *Http2Conn) deal() {
-	slog.Debug("[start]Http2Conn.deal, Connection:%v", hc.DirectConn.String())
+func (hc *Http2Conn) DealOutput() {
+	dc := hc.DirectConn.Reverse()
+	slog.Debug("[start]Http2Conn.DealOutput, Connection:%v", dc.String())
+
+	var err error
+	var fb *FrameBase
+
+	for {
+		slog.Debug("Http2Conn.DealOutput, Connection:%v", dc.String())
+		buf := make([]byte, HeaderSize)
+		_, err = io.ReadFull(hc.Output.Reader, buf)
+		if err != nil {
+			slog.Warn("Http2Conn.DealOutput, ReadFull:%v", err)
+			break
+		}
+
+		slog.Debug("Http2Conn.DealOutput, ParseFrameBase, Connection:%v", dc.String())
+		fb, err = ParseFrameBase(buf)
+		if err != nil {
+			slog.Error("ProcessTCPPkg error:%v", err)
+			break
+		}
+		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
+			dc.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
+
+		// Separate processing according to frame type
+		buf = make([]byte, 0, fb.Length)
+		if fb.Length > 0 {
+			_, err = io.ReadFull(hc.Output.Reader, buf)
+			if err != nil {
+				slog.Warn("Http2Conn.DealOutput, ReadFull:%v", err)
+				break
+			}
+		}
+		fb.Payload = buf
+		hc.ProcessFrame(fb)
+	}
+}
+
+func (hc *Http2Conn) DealInput() {
+	slog.Debug("[start]Http2Conn.DealInput, Connection:%v", hc.DirectConn.String())
 
 	var err error
 	var fb *FrameBase
 	for {
-		slog.Debug("Http2Conn.deal, Connection:%v", hc.DirectConn.String())
+		slog.Debug("Http2Conn.DealInput, Connection:%v", hc.DirectConn.String())
 		buf := make([]byte, HeaderSize)
-		_, err = io.ReadFull(hc.Reader, buf)
+		_, err = io.ReadFull(hc.Input.Reader, buf)
 		if err != nil {
-			slog.Warn("Http2Conn.deal, ReadFull:%v", err)
+			slog.Warn("Http2Conn.DealInput, ReadFull:%v", err)
 			break
 		}
 
-		slog.Debug("Http2Conn.deal, ParseFrameBase, Connection:%v", hc.DirectConn.String())
+		slog.Debug("Http2Conn.DealInput, ParseFrameBase, Connection:%v", hc.DirectConn.String())
 		fb, err = ParseFrameBase(buf)
 		if err != nil {
 			slog.Error("ProcessTCPPkg error:%v", err)
@@ -166,9 +229,9 @@ func (hc *Http2Conn) deal() {
 			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
 		// Separate processing according to frame type
-		buf = make([]byte, fb.Length)
+		buf = make([]byte, 0, fb.Length)
 		if fb.Length > 0 {
-			_, err = io.ReadFull(hc.Reader, buf)
+			_, err = io.ReadFull(hc.Input.Reader, buf)
 			if err != nil {
 				slog.Warn("Http2Conn.deal, ReadFull:%v", err)
 				break
@@ -205,7 +268,35 @@ func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
 	}
 }
 
+func (hc *Http2Conn) IsInput(conn DirectConn) bool {
+	return hc.DirectConn == hc.DirectConn
+}
+
 func (hc *Http2Conn) processFrameData(f *FrameBase) {
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+
+	//Is it input or output?
+	inputFlag := hc.IsInput(*f.DirectConn)
+	if inputFlag {
+		hc._processFrameData(f, hc.Input, stream.Request)
+	} else {
+		hc._processFrameData(f, hc.Output, stream.Response)
+	}
+
+	if (!hc.RecordResponse && stream.Request.EndStream) || (hc.RecordResponse && stream.Response.EndStream) {
+		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
+		if pErr == nil {
+			hc.Processor.OutputChan <- pMsg
+		}
+		stream.Reset()
+	}
+}
+
+func (hc *Http2Conn) _processFrameData(f *FrameBase, parser *MessageParser,
+	item *HTTPItem) {
 	fd, err := ParseFrameData(f)
 	if err != nil {
 		slog.Error("ParseFrameData:%v", err)
@@ -215,13 +306,10 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
 		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
 
-	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
 	var gzipReader *gzip.Reader
 
 	// Convert protobuf to JSON string
-	if len(fd.Data) > 0 && !strings.Contains(stream.Method, "grpc.reflection") {
+	if len(fd.Data) > 0 {
 		msg, _ := fd.ParseGRPCMessage()
 		// Compression is turned on
 		if msg.PayloadFormat == compressionMade {
@@ -240,13 +328,28 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 		}
 
 		slog.Debug("len(msg.EncodedMessage):%v", len(msg.EncodedMessage))
-		_, err = stream.DataBuf.Write(msg.EncodedMessage)
+		_, err = item.DataBuf.Write(msg.EncodedMessage)
 		if err != nil {
 			slog.Error("processFrameData, gunzip error:%v", err)
 		}
 	}
+}
 
-	if fd.EndStream {
+func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+
+	//Is it input or output?
+	inputFlag := hc.IsInput(*f.DirectConn)
+	if inputFlag {
+		hc._processFrameHeader(f, hc.Input, stream.Request)
+	} else {
+		hc._processFrameHeader(f, hc.Output, stream.Response)
+	}
+
+	if (!hc.RecordResponse && stream.Request.EndStream) || (hc.RecordResponse && stream.Response.EndStream) {
 		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
 		if pErr == nil {
 			hc.Processor.OutputChan <- pMsg
@@ -255,70 +358,71 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	}
 }
 
-func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
+func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
+	item *HTTPItem) {
 	fh, err := ParseFrameHeader(f)
 	if err != nil {
 		slog.Error("ProcessFrameHeader:%v", err)
 		return
 	}
 
-	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.StreamID = f.StreamID
-	stream.EndStream = fh.EndStream
-	stream.EndHeader = fh.EndHeader
-	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v, MaxDynamicTableSize:%v",
-		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream, hc.MaxDynamicTableSize)
+	item.EndHeader = fh.EndHeader
+	item.EndStream = fh.EndStream
 
-	hdec := hc.HeaderDecoder
-	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
+		f.DirectConn.String(), f.StreamID, fh.EndHeader, fh.EndStream)
+
+	hdec := parser.HeaderDecoder
+	//hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
 	fields, err := hdec.DecodeFull(fh.HeaderBlockFragment)
 	if err != nil {
 		slog.Error(err.Error())
 		return
 	}
 	for _, field := range fields {
-		stream.Headers[field.Name] = field.Value
+		item.Headers[field.Name] = field.Value
 		if field.Name == PseudoHeaderPath {
-			stream.Method = field.Value
+			item.Method = field.Value
 		}
 		slog.Debug(field.String())
-	}
-
-	if fh.EndStream {
-		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
-		if pErr == nil {
-			hc.Processor.OutputChan <- pMsg
-		}
-		stream.Reset()
 	}
 }
 
 func (hc *Http2Conn) processFrameContinuation(f *FrameBase) {
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+
+	//Is it input or output?
+	inputFlag := hc.IsInput(*f.DirectConn)
+	if inputFlag {
+		hc._processFrameContinuation(f, hc.Input, stream.Request)
+	} else {
+		hc._processFrameContinuation(f, hc.Output, stream.Response)
+	}
+}
+
+func (hc *Http2Conn) _processFrameContinuation(f *FrameBase,
+	parser *MessageParser, item *HTTPItem) {
 	fc, err := ParseFrameContinuation(f)
 	if err != nil {
 		slog.Error("ParseFrameContinuation:%v", err)
 		return
 	}
 
-	// Set the state of the stream
-	index := fc.fb.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.StreamID = f.StreamID
-	stream.EndHeader = fc.EndHeader
+	item.EndHeader = fc.EndHeader
 	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
-		hc.DirectConn.String(), stream.StreamID, stream.EndHeader, stream.EndStream)
+		hc.DirectConn.String(), f.StreamID, item.EndHeader, item.EndStream)
 
-	hdec := hc.HeaderDecoder
-	hdec.SetMaxStringLength(int(hc.MaxHeaderStringLen))
+	hdec := parser.HeaderDecoder
 	fields, err := hdec.DecodeFull(fc.HeaderBlockFragment)
 	if err != nil {
 		slog.Error(err.Error())
 		return
 	}
 	for _, field := range fields {
-		stream.Headers[field.Name] = field.Value
+		item.Headers[field.Name] = field.Value
 		slog.Debug(field.String())
 	}
 }
@@ -336,6 +440,21 @@ func (hc *Http2Conn) processFrameRSTStream(f *FrameBase) {
 }
 
 func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
+	// Set the state of the stream
+	index := f.StreamID % StreamArraySize
+	stream := hc.Streams[index]
+	stream.StreamID = f.StreamID
+
+	//Is it input or output?
+	inputFlag := hc.IsInput(*f.DirectConn)
+	if inputFlag {
+		hc._processFrameSetting(f, hc.Input)
+	} else {
+		hc._processFrameSetting(f, hc.Output)
+	}
+}
+
+func (hc *Http2Conn) _processFrameSetting(f *FrameBase, parser *MessageParser) {
 	fs, err := ParseFrameSetting(f)
 	if err != nil {
 		slog.Error("ParseFrameSetting:%v", err)
@@ -348,73 +467,124 @@ func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
 	for _, item := range fs.settings {
 		if item.ID == http2SettingHeaderTableSize {
 			slog.Warn("adjust http2SettingHeaderTableSize:%v", item.Val)
-			hc.MaxDynamicTableSize = item.Val
-			hc.HeaderDecoder.SetMaxDynamicTableSize(item.Val)
+			parser.MaxDynamicTableSize = item.Val
+			parser.HeaderDecoder.SetMaxDynamicTableSize(item.Val)
 		}
 	}
 }
 
 type Stream struct {
-	StreamID  uint32
+	StreamID       uint32
+	RecordResponse bool
+	Request        *HTTPItem
+	Response       *HTTPItem
+}
+
+type HTTPItem struct {
 	EndHeader bool
 	EndStream bool
-	Headers   map[string]string `json:"headers"`
-	Method    string            `json:"method"`
 
-	// The result after json serialization
-	Request []byte        `json:"request"`
+	Headers map[string]string `json:"headers"`
+	Method  string            `json:"method"`
+
 	DataBuf *bytes.Buffer `json:"-"`
 }
 
-func NewStream() *Stream {
+func (item *HTTPItem) Reset() {
+	item.EndStream = false
+	item.EndHeader = false
+	item.Headers = make(map[string]string)
+	//item.Body = make([]byte, 0)
+	item.DataBuf.Reset()
+}
+
+func NewHTTPItem() *HTTPItem {
+	var item HTTPItem
+	item.Headers = make(map[string]string)
+	item.EndStream = false
+	item.EndHeader = false
+	item.DataBuf = bytes.NewBuffer([]byte{})
+	return &item
+}
+
+func NewStream(recordResponse bool) *Stream {
 	var s Stream
-	s.Headers = make(map[string]string)
-	s.EndStream = false
-	s.EndHeader = false
-	s.DataBuf = bytes.NewBuffer([]byte{})
+	s.RecordResponse = recordResponse
+	s.Request = NewHTTPItem()
+	if recordResponse {
+		s.Response = NewHTTPItem()
+	}
 	return &s
 }
 
-func (s *Stream) toMsg(finder *PBMessageFinder) (*protocol.Message, error) {
-	var msg protocol.Message
-	var err error
-	id := uuid.Must(uuid.NewUUID())
-	msg.Meta.Version = 1
-	msg.Meta.UUID = id.String()
-	msg.Meta.Timestamp = time.Now().UnixNano()
-
-	msg.Data.Headers = s.Headers
-	msg.Data.Method = s.Method
-
-	codecType := getCodecType(s.Headers)
-	if codecType == CodecProtobuf {
-		s.Method = strings.TrimSpace(s.Method)
-		if len(s.Method) <= 0 {
-			slog.Error("method is empty, this is illegal")
-			return nil, errors.New("method is empty")
-		} else if !strings.Contains(s.Method, "grpc.reflection") {
-			// Note: Temporarily only handle the case where the encoding method is Protobuf
-			s.Request, err = finder.HandleRequestToJson(s.Method, s.DataBuf.Bytes())
-			if err != nil {
-				slog.Error("method:%v, HandleRequestToJson:%v", s.Method, err)
-				return nil, err
-			}
-		}
-	} else {
-		s.Request = s.DataBuf.Bytes()
+func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
+	method := strings.TrimSpace(s.Request.Method)
+	if len(method) <= 0 {
+		slog.Error("method is empty, this is illegal")
+		return nil, errors.New("method is empty")
+	}
+	if strings.Contains(method, "grpc.reflection") {
+		return nil, errors.New("method is grpc.reflection")
 	}
 
-	msg.Data.Request = string(s.Request)
+	var msg protocol.Message
+	var err error
+	var dataType *MethodInputOutput
+	id := uuid.Must(uuid.NewUUID())
+	msg.Meta.Version = 2
+	msg.Meta.UUID = id.String()
+	msg.Meta.Timestamp = time.Now().UnixNano()
+	msg.Meta.ContainResponse = s.RecordResponse
+
+	msg.Method = strings.TrimSpace(s.Request.Method)
+	codecType := getCodecType(s.Request.Headers)
+	// 1. ###### request ######
+	msg.Request = &protocol.MsgItem{}
+	msg.Request.Headers = s.Request.Headers
+
+	if codecType == CodecProtobuf {
+		// Note: Temporarily only handle the case where the encoding method is Protobuf
+		dataType, err = finder.Get(msg.Method)
+		msg.Request.Body, err = changeToJsonStr(dataType.InType, s.Request.DataBuf.Bytes())
+		if err != nil {
+			slog.Error("method:%v, finder.Get:%v", method, err)
+			return nil, err
+		}
+	} else {
+		msg.Request.Body = string(s.Request.DataBuf.Bytes())
+	}
+	// 2. ###### response ######
+	if s.RecordResponse {
+		msg.Response = &protocol.MsgItem{}
+		msg.Response.Headers = s.Response.Headers
+
+		if codecType == CodecProtobuf {
+			msg.Response.Body, err = changeToJsonStr(dataType.OutType, s.Response.DataBuf.Bytes())
+		} else {
+			msg.Response.Body = string(s.Response.DataBuf.Bytes())
+		}
+	}
+
 	return &msg, nil
+}
+
+func changeToJsonStr(pbMsg proto.Message, data []byte) (string, error) {
+	err := proto.Unmarshal(data, pbMsg)
+	if err != nil {
+		return "", err
+	}
+
+	result, err := protojson.Marshal(pbMsg)
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
 }
 
 func (s *Stream) Reset() {
 	s.StreamID = 0
-	s.EndStream = false
-	s.EndHeader = false
-	s.Headers = make(map[string]string)
-	s.Request = make([]byte, 0)
-	s.DataBuf.Reset()
+	s.Request.Reset()
+	s.Response.Reset()
 }
 
 // Frame Header

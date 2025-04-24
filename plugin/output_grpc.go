@@ -116,8 +116,8 @@ func (o *GRPCOutput) Write(msg *protocol.Message) (err error) {
 }
 
 func convertHeader(msg *protocol.Message) (headers []string) {
-	headers = make([]string, 0, len(msg.Data.Headers))
-	for key, value := range msg.Data.Headers {
+	headers = make([]string, 0, len(msg.Request.Headers))
+	for key, value := range msg.Request.Headers {
 		if !IsPseudo(key) {
 			headers = append(headers, key+":"+value)
 		}
@@ -153,20 +153,20 @@ func (w *GrpcWorker) execute() {
 	for msg := range w.msgChannel {
 		err := w.Call(msg)
 		if err != nil {
-			slog.Error("Call, message:%v, error:%v", msg.Data.Method, err)
+			slog.Error("Call, message:%v, error:%v", msg.Method, err)
 		}
 	}
 }
 
 func (w *GrpcWorker) Call(msg *protocol.Message) (err error) {
-	if len(msg.Data.Method) <= 0 {
+	if len(msg.Method) <= 0 {
 		slog.Error("invalid msg:%v", msg)
 		return fmt.Errorf("invalid msg:%v", msg)
 	}
 
-	in := strings.NewReader(msg.Data.Request)
+	in := strings.NewReader(msg.Request.Body)
 
-	slog.Debug("Request:%v", msg.Data.Request)
+	slog.Debug("Request:%v", msg.Request.Body)
 	// if not verbose output, then also include record delimiters
 	// between each message, so output could potentially be piped
 	// to another grpcurl process
@@ -186,9 +186,9 @@ func (w *GrpcWorker) Call(msg *protocol.Message) (err error) {
 		VerbosityLevel: 0,
 	}
 
-	symbol := msg.Data.Method
+	symbol := msg.Method
 	// /proto.SearchService/Search  ->  proto.SearchService/Search
-	if strings.HasPrefix(msg.Data.Method, "/") {
+	if strings.HasPrefix(msg.Method, "/") {
 		symbol = symbol[1:]
 	}
 

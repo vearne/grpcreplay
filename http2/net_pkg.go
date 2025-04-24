@@ -19,6 +19,10 @@ func (d *DirectConn) String() string {
 		d.SrcAddr.Port, d.DstAddr.IP, d.DstAddr.Port)
 }
 
+func (d *DirectConn) Reverse() DirectConn {
+	return DirectConn{SrcAddr: d.DstAddr, DstAddr: d.SrcAddr}
+}
+
 type Dir uint8
 
 type NetPkg struct {
