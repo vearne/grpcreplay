@@ -1,24 +1,9 @@
 package http2
 
 import (
-	"context"
-	"fmt"
-	"github.com/fullstorydev/grpcurl"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/vearne/grpcreplay/protocol"
-	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
-	"google.golang.org/grpc"
-	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/dynamicpb"
 	"math"
-	"sync"
 )
 
 type Processor struct {
@@ -134,100 +119,4 @@ func getCodecType(headers map[string]string) int {
 	} else {
 		return CodecOther
 	}
-}
-
-type PBMessageFinder struct {
-	cacheMu   sync.Mutex
-	symbolMsg map[string]proto.Message
-	// server address
-	addr string
-}
-
-func (f *PBMessageFinder) HandleRequestToJson(svcAndMethod string, data []byte) ([]byte, error) {
-	f.cacheMu.Lock()
-	defer f.cacheMu.Unlock()
-
-	pbMsg, err := f.FindMethodInputWithCache(svcAndMethod)
-	if err != nil {
-		slog.Error("finder.FindMethodInputWithCache, error:%v", err)
-		return nil, err
-	}
-	err = proto.Unmarshal(data, pbMsg)
-	if err != nil {
-		slog.Error("method:%v, proto.Unmarshal:%v", svcAndMethod, err)
-		return nil, err
-	}
-
-	result, err := protojson.Marshal(pbMsg)
-	if err != nil {
-		slog.Error("method:%v, json.Marshal:%v", svcAndMethod, err)
-		return nil, err
-	}
-	return result, nil
-}
-
-func (f *PBMessageFinder) FindMethodInputWithCache(svcAndMethod string) (proto.Message, error) {
-	slog.Debug("FindMethodInputWithCache, svcAndMethod:%v", svcAndMethod)
-
-	m, ok := f.symbolMsg[svcAndMethod]
-	if ok {
-		slog.Debug("FindMethodInputWithCache,svcAndMethod:%v, hit cache", svcAndMethod)
-		return m, nil
-	}
-
-	msg, err := f.FindMethodInput(svcAndMethod)
-	if err != nil {
-		return nil, err
-	}
-
-	f.symbolMsg[svcAndMethod] = msg
-	return msg, nil
-}
-
-func (f *PBMessageFinder) FindMethodInput(svcAndMethod string) (proto.Message, error) {
-	slog.Debug("FindMethodInput, svcAndMethod:%v", svcAndMethod)
-
-	var cc *grpc.ClientConn
-	network := "tcp"
-	ctx := context.Background()
-	cc, err := grpcurl.BlockingDial(ctx, network, f.addr, nil)
-	if err != nil {
-		slog.Fatal("PBMessageFinder.FindMethodInput,addr:%v,error:%v,enable grpc reflection service?",
-			f.addr, err)
-	}
-	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(cc))
-	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
-	svc, method := parseSymbol(svcAndMethod)
-	slog.Info("parseSymbol, svc:%v, method:%v", svc, method)
-	dsc, err := descSource.FindSymbol(svc)
-	if err != nil {
-		return nil, fmt.Errorf("descSource.FindSymbol,service:%v,method:%v,error:%w", svc, method, err)
-	}
-	sd, ok := dsc.(*desc.ServiceDescriptor)
-	if !ok {
-		return nil, fmt.Errorf("change to *desc.ServiceDescriptor,service:%v,method:%v, type:%T",
-			svc, method, dsc)
-	}
-	mtd := sd.FindMethodByName(method)
-	inputType := mtd.GetInputType()
-	// get FileDescriptor
-	strSet := util.NewStringSet()
-	fdSet := &descriptorpb.FileDescriptorSet{}
-	constructFileDescriptorSet(strSet, fdSet, inputType.GetFile())
-	prFiles, err := protodesc.NewFiles(fdSet)
-	if err != nil {
-		return nil, fmt.Errorf("protodesc.NewFiles,service:%v,method:%v,error:%w", svc, method, err)
-	}
-	pfd, err := prFiles.FindDescriptorByName(protoreflect.FullName(inputType.GetFullyQualifiedName()))
-	if err != nil {
-		return nil, fmt.Errorf("prFiles.FindDescriptorByName,service:%v,method:%v,error:%w",
-			svc, method, err)
-	}
-
-	pfmd, ok := pfd.(protoreflect.MessageDescriptor)
-	if !ok {
-		return nil, fmt.Errorf("pfd.(protoreflect.MessageDescriptor),service:%v,method:%v,type:%T",
-			svc, method, pfd)
-	}
-	return dynamicpb.NewMessage(pfmd), nil
 }

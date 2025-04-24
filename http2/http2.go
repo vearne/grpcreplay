@@ -183,13 +183,11 @@ func (hc *Http2Conn) DealOutput() {
 		}
 
 		slog.Debug("Http2Conn.DealOutput, ParseFrameBase, Connection:%v", dc.String())
-		fb, err = ParseFrameBase(buf)
+		fb, err = ParseFrameBase(buf, hc.DirectConn.Reverse(), false)
 		if err != nil {
 			slog.Error("ProcessTCPPkg error:%v", err)
 			break
 		}
-		fb.DirectConn = hc.DirectConn.Reverse()
-		fb.InputFlag = false
 		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
 			dc.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
@@ -222,18 +220,16 @@ func (hc *Http2Conn) DealInput() {
 		}
 
 		slog.Debug("Http2Conn.DealInput, ParseFrameBase, Connection:%v", hc.DirectConn.String())
-		fb, err = ParseFrameBase(buf)
+		fb, err = ParseFrameBase(buf, hc.DirectConn, true)
 		if err != nil {
 			slog.Error("ProcessTCPPkg error:%v", err)
 			break
 		}
-		fb.DirectConn = hc.DirectConn
-		fb.InputFlag = true
 		slog.Debug("Connection:%v,  FrameType:%v,  streamID:%v, len(payload):%v",
 			hc.DirectConn.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
 		// Separate processing according to frame type
-		buf = make([]byte, 0, fb.Length)
+		buf = make([]byte, fb.Length)
 		if fb.Length > 0 {
 			_, err = io.ReadFull(hc.Input.Reader, buf)
 			if err != nil {
@@ -249,6 +245,7 @@ func (hc *Http2Conn) DealInput() {
 }
 
 func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
+	slog.Debug("[ProcessFrame]: %v", GetFrameType(f.Type))
 	switch f.Type {
 	case FrameTypeData:
 		// parse data
@@ -595,7 +592,7 @@ type FrameBase struct {
 	Payload   []byte
 }
 
-func ParseFrameBase(b []byte) (*FrameBase, error) {
+func ParseFrameBase(b []byte, dc DirectConn, inputFlag bool) (*FrameBase, error) {
 	reader := bytes.NewReader(b)
 	var fb FrameBase
 	var tmp uint8
@@ -629,6 +626,9 @@ func ParseFrameBase(b []byte) (*FrameBase, error) {
 	} else {
 		fb.Payload = b[HeaderSize:]
 	}
+	// Mark the direction
+	fb.DirectConn = dc
+	fb.InputFlag = inputFlag
 	return &fb, nil
 }
 
