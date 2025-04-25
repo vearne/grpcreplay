@@ -43,10 +43,15 @@ func NewReflectionPBFinder(addr string) *ReflectionPBFinder {
 }
 
 func (f *ReflectionPBFinder) Get(svcAndMethod string) (*MethodInputOutput, error) {
-	value, ok := f.innerCache.Get(svcAndMethod)
-	if ok {
+	if v, ok := f.innerCache.Get(svcAndMethod); ok {
 		slog.Debug("ReflectionPBFinder.Get,svcAndMethod:%v, hit cache", svcAndMethod)
-		return value.(*MethodInputOutput), nil
+
+		cached := v.(*MethodInputOutput)
+		// return a fresh copy – no shared state
+		return &MethodInputOutput{
+			InType:  proto.Clone(cached.InType).(proto.Message),
+			OutType: proto.Clone(cached.OutType).(proto.Message),
+		}, nil
 	}
 
 	m, err := f.Find(svcAndMethod)
@@ -70,6 +75,7 @@ func (f *ReflectionPBFinder) Find(svcAndMethod string) (*MethodInputOutput, erro
 		slog.Fatal("PBMessageFinder.FindMethodInput,addr:%v, error:%v, enable grpc reflection service?",
 			f.addr, err)
 	}
+	defer cc.Close()
 
 	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(cc))
 	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)

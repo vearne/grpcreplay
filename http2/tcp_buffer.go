@@ -5,7 +5,6 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/huandu/skiplist"
 	slog "github.com/vearne/simplelog"
-	"io"
 	"math"
 	"net"
 	"sync/atomic"
@@ -43,26 +42,36 @@ func (sb *TCPBuffer) Close() {
 
 // may block
 func (sb *TCPBuffer) Read(p []byte) (n int, err error) {
+	// First check buffer to avoid unnecessary channel operations
 	if sb.buffer.Len() > 0 {
 		n, err = sb.buffer.Read(p)
-		if err != io.EOF {
+		// err will only be nil
+		if err == nil {
+			sb.updateCounters(n)
 			return n, err
 		}
 	}
 
+	// blocking util read success or error occur
 	select {
 	case <-sb.closeChan:
-		err = net.ErrClosed
-		return 0, err
+		return 0, net.ErrClosed
 	case data := <-sb.dataChannel:
-		sb.buffer.Write(data)
+		if _, writeErr := sb.buffer.Write(data); writeErr != nil {
+			return 0, writeErr
+		}
 	}
 
 	n, err = sb.buffer.Read(p)
-	sb.size.Add(int64(n) * -1)
-	sb.actualCanReadSize.Add(int64(n) * -1)
+	sb.updateCounters(n)
 	slog.Debug("SocketBuffer.Read, got:%v bytes", n)
 	return n, err
+}
+
+// Helper method to avoid duplicate counter update code
+func (sb *TCPBuffer) updateCounters(n int) {
+	sb.size.Add(int64(-n))
+	sb.actualCanReadSize.Add(int64(-n))
 }
 
 func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
@@ -114,20 +123,14 @@ func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
 		sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
 }
 
+// validPackage checks if a packet sequence number falls within the valid window
+// considering 32-bit unsigned integer wrap-around.
 func validPackage(expectedSeq uint32, maxWindowSize uint32, pkgSeq uint32) bool {
 	rightBorder := (expectedSeq + maxWindowSize) % math.MaxUint32
-	// case 1: sequence wrap around
+	// Handle wrap-around case
 	if rightBorder < expectedSeq {
-		if (pkgSeq <= rightBorder) || (pkgSeq >= expectedSeq) {
-			return true
-		} else {
-			return false
-		}
-	} else { // case 2
-		if pkgSeq >= expectedSeq && pkgSeq <= expectedSeq+maxWindowSize {
-			return true
-		} else {
-			return false
-		}
+		return pkgSeq <= rightBorder || pkgSeq >= expectedSeq
 	}
+	// Normal case (no wrap-around)
+	return pkgSeq >= expectedSeq && pkgSeq <= rightBorder
 }
