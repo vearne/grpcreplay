@@ -84,8 +84,7 @@ func NewGRPCOutput(addr string, workerNum int) *GRPCOutput {
 	var o GRPCOutput
 
 	ctx := context.Background()
-	network := "tcp"
-	o.cc, err = grpcurl.BlockingDial(ctx, network, addr, nil)
+	o.cc, err = grpcurl.BlockingDial(ctx, "tcp", addr, nil)
 	if err != nil {
 		slog.Fatal("grpcurl.BlockingDial :%v", err)
 	}

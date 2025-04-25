@@ -49,8 +49,8 @@ func (f *ReflectionPBFinder) Get(svcAndMethod string) (*MethodInputOutput, error
 		cached := v.(*MethodInputOutput)
 		// return a fresh copy – no shared state
 		return &MethodInputOutput{
-			InType:  proto.Clone(cached.InType).(proto.Message),
-			OutType: proto.Clone(cached.OutType).(proto.Message),
+			InType:  proto.Clone(cached.InType),
+			OutType: proto.Clone(cached.OutType),
 		}, nil
 	}
 
