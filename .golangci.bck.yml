@@ -1,0 +1,33 @@
+linters:
+  # https://golangci-lint.run/usage/linters
+  disable-all: true
+  enable:
+    - errcheck      # Errcheck is a program for checking for unchecked errors in Go code.
+    - gosimple      # Linter for Go source code that specializes in simplifying code.
+    - govet         # Vet examines Go source code and reports suspicious constructs.
+    - ineffassign   # Detects when assignments to existing variables are not used.
+    - staticcheck   # It's a set of rules from staticcheck.
+    - unused        # Checks Go code for unused constants, variables, functions and types.
+    - copyloopvar   # A linter detects places where loop variables are copied.
+    - gocyclo       # Computes and checks the cyclomatic complexity of functions.
+    - gocognit      # Computes and checks the cognitive complexity of functions.
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  gocyclo:
+    # Default: 30 (but we recommend 10-20)
+    min-complexity: 20
+  gocognit:
+    # Minimal code complexity to report.
+    # Default: 30 (but we recommend 10-20)
+    min-complexity: 30
+
+issues:
+  exclude-dirs:
+    - scripts
+    - test/listconn
+
+

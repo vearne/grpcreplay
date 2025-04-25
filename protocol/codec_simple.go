@@ -21,8 +21,8 @@ func (c CodecSimple) Marshal(msg *Message) ([]byte, error) {
 	buff := bytes.NewBuffer(make([]byte, 0))
 	// line 1
 	//{version} {uuid} {start-timestamp} {containResponse}
-	buff.WriteString(fmt.Sprintf("%d %s %d %d", msg.Meta.Version, msg.Meta.UUID,
-		msg.Meta.Timestamp, bool2Int(msg.Meta.ContainResponse)))
+	fmt.Fprintf(buff, "%d %s %d %d", msg.Meta.Version, msg.Meta.UUID,
+		msg.Meta.Timestamp, bool2Int(msg.Meta.ContainResponse))
 	buff.Write([]byte{'\n'})
 	// line 2
 	// method
@@ -35,16 +35,15 @@ func (c CodecSimple) Marshal(msg *Message) ([]byte, error) {
 		return nil, err
 	}
 	buff.Write(data)
-	buff.Write([]byte{'\n'})
 	// line 4
 	// response (optional)
 	if msg.Meta.ContainResponse {
+		buff.Write([]byte{'\n'})
 		data, err = json.Marshal(msg.Response)
 		if err != nil {
 			return nil, err
 		}
 		buff.Write(data)
-		buff.Write([]byte{'\n'})
 	}
 
 	return buff.Bytes(), nil
@@ -75,6 +74,9 @@ func (c CodecSimple) Unmarshal(data []byte, msg *Message) error {
 		return err
 	}
 	msg.Meta.ContainResponse = int2bool(tmp)
+	if msg.Meta.ContainResponse {
+		msg.Response = &MsgItem{}
+	}
 	// line 2
 	msg.Method = string(lines[1])
 	// line 3
@@ -84,8 +86,7 @@ func (c CodecSimple) Unmarshal(data []byte, msg *Message) error {
 		return err
 	}
 	// line 4
-	if msg.Meta.ContainResponse && len(lines) == 4 {
-		msg.Response = &MsgItem{}
+	if msg.Meta.ContainResponse && len(lines) >= 4 {
 		err = json.Unmarshal(lines[3], &msg.Response)
 		if err != nil {
 			return err

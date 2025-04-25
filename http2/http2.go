@@ -188,7 +188,7 @@ func (hc *Http2Conn) DealOutput() {
 			dc.String(), GetFrameType(fb.Type), fb.StreamID, fb.Length)
 
 		// Separate processing according to frame type
-		buf = make([]byte, 0, fb.Length)
+		buf = make([]byte, fb.Length)
 		if fb.Length > 0 {
 			_, err = io.ReadFull(hc.Output.TCPBuffer, buf)
 			if err != nil {
@@ -534,13 +534,17 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	if codecType == CodecProtobuf {
 		// Note: Temporarily only handle the case where the encoding method is Protobuf
 		dataType, err = finder.Get(msg.Method)
+		if err != nil {
+			slog.Error("finder.Get, method:%v, error:%v", method, err)
+			return nil, err
+		}
 		msg.Request.Body, err = changeToJsonStr(dataType.InType, s.Request.DataBuf.Bytes())
 		if err != nil {
-			slog.Error("method:%v, finder.Get:%v", method, err)
+			slog.Error("changeToJsonStr, method:%v, error:%v", method, err)
 			return nil, err
 		}
 	} else {
-		msg.Request.Body = string(s.Request.DataBuf.Bytes())
+		msg.Request.Body = s.Request.DataBuf.String()
 	}
 	// 2. ###### response ######
 	if s.RecordResponse {
@@ -549,8 +553,12 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 
 		if codecType == CodecProtobuf {
 			msg.Response.Body, err = changeToJsonStr(dataType.OutType, s.Response.DataBuf.Bytes())
+			if err != nil {
+				slog.Error("changeToJsonStr, method:%v, error:%v", method, err)
+				return nil, err
+			}
 		} else {
-			msg.Response.Body = string(s.Response.DataBuf.Bytes())
+			msg.Response.Body = s.Response.DataBuf.String()
 		}
 	}
 

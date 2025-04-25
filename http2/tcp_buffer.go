@@ -44,7 +44,7 @@ func (sb *TCPBuffer) Close() {
 // may block
 func (sb *TCPBuffer) Read(p []byte) (n int, err error) {
 	if sb.buffer.Len() > 0 {
-		n, err := sb.buffer.Read(p)
+		n, err = sb.buffer.Read(p)
 		if err != io.EOF {
 			return n, err
 		}

@@ -28,7 +28,7 @@ func main() {
 }
 
 func execute() {
-	conn, err := grpc.Dial(address,
+	conn, err := grpc.NewClient(address,
 		grpc.WithInsecure(),
 		//grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
 	)

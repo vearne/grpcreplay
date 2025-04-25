@@ -109,6 +109,44 @@ func TestSocketBufferSequence3(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestSocketBufferSequence4(t *testing.T) {
+	slog.SetLevel(slog.DebugLevel)
+	buffer := NewTCPBuffer()
+	buffer.expectedSeq = 1000
+
+	var tcpPkgA layers.TCP
+	tcpPkgA.Seq = 1000
+	tcpPkgA.Payload = []byte("aaaaaaaaaa")
+
+	var tcpPkgB layers.TCP
+	tcpPkgB.Seq = 1010
+	tcpPkgB.Payload = []byte("bbbbbbbbbb")
+
+	var tcpPkgC layers.TCP
+	tcpPkgC.Seq = 1020
+	tcpPkgC.Payload = []byte("cccccccccc")
+
+	var tcpPkgD layers.TCP
+	tcpPkgD.Seq = 1030
+	tcpPkgD.Payload = []byte("dddddddddd")
+
+	buffer.AddTCP(&tcpPkgC)
+	buffer.AddTCP(&tcpPkgB)
+	buffer.AddTCP(&tcpPkgA)
+	buffer.AddTCP(&tcpPkgD)
+
+	buf := make([]byte, 5)
+	for _, str := range []string{"aaaaa", "aaaaa", "bbbbb", "bbbbb",
+		"ccccc", "ccccc", "ddddd", "ddddd"} {
+		n, err := io.ReadFull(buffer, buf)
+		// assert equality
+		assert.Equal(t, 5, n, "read data")
+		assert.Equal(t, str, string(buf[0:n]), "read data")
+		// assert for nil (good for errors)
+		assert.Nil(t, err)
+	}
+}
+
 func TestSocketBufferWrapAround1(t *testing.T) {
 	slog.SetLevel(slog.DebugLevel)
 	buffer := NewTCPBuffer()

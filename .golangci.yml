@@ -1,25 +1,41 @@
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck      # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
-    - gosimple      # Linter for Go source code that specializes in simplifying a code
-    - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
-    - ineffassign   # Detects when assignments to existing variables are not used
-    - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
-    - typecheck     # Like the front-end of a Go compiler, parses and type-checks Go code
-    - unused        # Checks Go code for unused constants, variables, functions and types
-    - exportloopref
+    - copyloopvar
+    - errcheck
+    - gocognit
+    - gocyclo
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  settings:
+    gocognit:
+      min-complexity: 30
+    gocyclo:
+      min-complexity: 20
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - test
+      - example
+      - third_party$
+      - builtin$
 
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-
-issues:
-  exclude-dirs:
-    - scripts
-    - test
-    - example
-    - cmd
-    - docker-compose
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

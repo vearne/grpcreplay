@@ -51,7 +51,7 @@ func (l *DeviceListener) listen() error {
 		return err
 	}
 
-	var filter string = fmt.Sprintf("tcp and port %v", l.port)
+	var filter = fmt.Sprintf("tcp and port %v", l.port)
 	slog.Info("listener:%v, filter:%v", l, filter)
 	err = l.handle.SetBPFFilter(filter)
 	if err != nil {

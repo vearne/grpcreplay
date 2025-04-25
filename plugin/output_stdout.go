@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"bytes"
 	"github.com/vearne/grpcreplay/protocol"
 	"os"
 )
@@ -30,9 +29,7 @@ func (o *StdOutput) Write(msg *protocol.Message) (err error) {
 		return err
 	}
 
-	buf := bytes.NewBuffer([]byte("##################\n"))
-	buf.Write(data)
-	_, err = os.Stderr.Write(buf.Bytes())
+	_, err = os.Stderr.Write(data)
 	if err != nil {
 		return err
 	}

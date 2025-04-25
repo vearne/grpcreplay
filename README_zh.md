@@ -64,8 +64,9 @@ sudo -s
 ## 用法
 捕获"0.0.0.0:35001"上的gRPC请求，并打印在控制台中
 ```
-./grpcr --input-raw="0.0.0.0:35001" --output-stdout
+./grpcr --input-raw="0.0.0.0:35001" --output-stdout --record-response
 ```
+`--record-response`(可选): 记录response
 捕获"127.0.0.1:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
@@ -110,24 +111,52 @@ sudo -s
 ```
 
 
-### 捕获的请求形如
+### 捕获的数据形如
+#### --codec="simple"
+```
+2 f8762dc4-20fa-11f0-a55f-5626e1cdcfe2 1745492273089274000 1
+/SearchService/CurrentTime
+{"headers":{":authority":"10.2.139.146:35001",":method":"POST",":path":"/SearchService/CurrentTime",":scheme":"http","content-type":"application/grpc","grpc-accept-encoding":"gzip","te":"trailers","testkey3":"testvalue3","testkey4":"testvalue4","user-agent":"grpc-go/1.65.0"},"body":"{\"requestId\":\"2\"}"}
+{"headers":{":status":"200","content-type":"application/grpc","grpc-message":"","grpc-status":"0"},"body":"{\"currentTime\":\"2025-04-24T18:57:49+08:00\"}"}
+```
+#### --codec="json"
 ```
 {
-	"headers": {
-		":authority": "localhost:35001",
-		":method": "POST",
-		":path": "/SearchService/Search",
-		":scheme": "http",
-		"content-type": "application/grpc",
-		"te": "trailers",
-		"testkey1": "testvalue1",
-		"testkey2": "testvalue2",
-		"user-agent": "grpc-go/1.48.0"
+	"meta": {
+		"version": 2,
+		"uuid": "644e70a0-20fc-11f0-9ba0-5626e1cdcfe2",
+		"timestamp": 1745492883519504000,
+		"containResponse": true
 	},
-	"method": "/SearchService/Search",
-	"request": "{\"staffName\":\"zhangsan\",\"gender\":true,\"age\":405084}"
+	"method": "/SearchService/CurrentTime",
+	"request": {
+		"headers": {
+			":authority": "10.2.139.146:35001",
+			":method": "POST",
+			":path": "/SearchService/CurrentTime",
+			":scheme": "http",
+			"content-type": "application/grpc",
+			"grpc-accept-encoding": "gzip",
+			"te": "trailers",
+			"testkey3": "testvalue3",
+			"testkey4": "testvalue4",
+			"user-agent": "grpc-go/1.65.0"
+		},
+		"body": "{\"requestId\":\"2\"}"
+	},
+	"response": {
+		"headers": {
+			":status": "200",
+			"content-type": "application/grpc",
+			"grpc-message": "",
+			"grpc-status": "0"
+		},
+		"body": "{\"currentTime\":\"2025-04-24T19:08:02+08:00\"}"
+	}
 }
 ```
+
+
 
 
 ## 调试

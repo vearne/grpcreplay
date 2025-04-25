@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/fullstorydev/grpcurl"
-	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/desc" // nolint: staticcheck
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/patrickmn/go-cache"
 	"github.com/vearne/grpcreplay/protocol"
