@@ -1,4 +1,4 @@
-FROM golang:1.18.5
+FROM golang:1.23.6
 
 RUN apt-get update && apt-get install vim-common libpcap-dev -y
 
