@@ -69,6 +69,7 @@ Capture gRPC request on "0.0.0.0:35001" and print in console
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout --record-response
 ```
 `--record-response`(optional): record response
+
 Capture gRPC request on "127.0.0.1:35001" and print in console
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout --record-response

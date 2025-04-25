@@ -67,6 +67,7 @@ sudo -s
 ./grpcr --input-raw="0.0.0.0:35001" --output-stdout --record-response
 ```
 `--record-response`(可选): 记录response
+
 捕获"127.0.0.1:35001"上的gRPC请求，并打印在控制台中
 ```
 ./grpcr --input-raw="127.0.0.1:35001" --output-stdout
