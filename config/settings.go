@@ -101,4 +101,6 @@ type AppSettings struct {
 
 	// --- other ---
 	Codec string `json:"codec"`
+
+	RecordResponse bool `json:"record-response"`
 }

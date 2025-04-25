@@ -23,7 +23,7 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 
 	for _, item := range settings.InputRAW {
 		slog.Debug("options: %q", item)
-		plugins.registerPlugin(plugin.NewRAWInput, item)
+		plugins.registerPlugin(plugin.NewRAWInput, item, settings.RecordResponse)
 	}
 
 	for _, path := range settings.InputFileDir {

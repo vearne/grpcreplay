@@ -16,4 +16,5 @@
 vendor/
 grpcr
 *.tar.gz
+aa.log
 

@@ -51,7 +51,7 @@ func (l *DeviceListener) listen() error {
 		return err
 	}
 
-	var filter string = fmt.Sprintf("tcp and port %v", l.port)
+	var filter = fmt.Sprintf("tcp and port %v", l.port)
 	slog.Info("listener:%v, filter:%v", l, filter)
 	err = l.handle.SetBPFFilter(filter)
 	if err != nil {
@@ -91,6 +91,8 @@ func (l *DeviceListener) listen() error {
 			} else { // new connection
 				l.rawInput.outputChan <- netPkg
 			}
+		} else if l.rawInput.recordResponse && netPkg.Direction == http2.DirOutcoming {
+			l.rawInput.outputChan <- netPkg
 		}
 	}
 	return nil
@@ -102,12 +104,13 @@ func (l *DeviceListener) Close() {
 
 // RAWInput used for intercepting traffic for given address
 type RAWInput struct {
-	connSet      *http2.ConnSet
-	ipSet        *util.StringSet
-	port         int
-	outputChan   chan *http2.NetPkg
-	listenerList []*DeviceListener
-	Processor    *http2.Processor
+	connSet        *http2.ConnSet
+	ipSet          *util.StringSet
+	port           int
+	outputChan     chan *http2.NetPkg
+	listenerList   []*DeviceListener
+	Processor      *http2.Processor
+	recordResponse bool
 }
 
 func findOneServerAddr(host string, port int) string {
@@ -130,7 +133,7 @@ func findOneServerAddr(host string, port int) string {
 }
 
 // NewRAWInput constructor for RAWInput. Accepts raw input config as arguments.
-func NewRAWInput(address string) (*RAWInput, error) {
+func NewRAWInput(address string, recordResponse bool) (*RAWInput, error) {
 	slog.Debug("address:%q", address)
 
 	host, port, err := net.SplitHostPort(address)
@@ -139,6 +142,7 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	}
 
 	var i RAWInput
+	i.recordResponse = recordResponse
 	i.connSet = http2.NewConnSet()
 	i.port, err = strconv.Atoi(port)
 	if err != nil {
@@ -146,8 +150,7 @@ func NewRAWInput(address string) (*RAWInput, error) {
 	}
 	i.ipSet = util.NewStringSet()
 	i.outputChan = make(chan *http2.NetPkg, 100)
-
-	i.Processor = http2.NewProcessor(i.outputChan, findOneServerAddr(host, i.port))
+	i.Processor = http2.NewProcessor(i.outputChan, findOneServerAddr(host, i.port), i.recordResponse)
 
 	var deviceList []string
 	itfStatList, err := psnet.Interfaces()
@@ -212,12 +215,7 @@ func (i *RAWInput) Listen() {
 	slog.Debug("len(i.listenerList):%v", len(i.listenerList))
 
 	for _, listener := range i.listenerList {
-		go func(listener *DeviceListener) {
-			listenErr := listener.listen()
-			if listenErr != nil {
-				slog.Fatal("listener.listen:%v", listenErr)
-			}
-		}(listener)
+		go listenerRun(listener)
 	}
 
 	// Until all old connections are exited
@@ -284,4 +282,11 @@ func listAllConns(port int) ([]http2.DirectConn, error) {
 
 func IPtoByte(ipStr string) []byte {
 	return net.ParseIP(ipStr).To4()
+}
+
+func listenerRun(listener *DeviceListener) {
+	listenErr := listener.listen()
+	if listenErr != nil {
+		slog.Fatal("listener.listen:%v", listenErr)
+	}
 }

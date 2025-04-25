@@ -22,7 +22,7 @@ func NewMethodMatchIncludeFilter(expr string) *MethodMatchIncludeFilter {
 
 // Filter :If ok is true, it means that the message can pass
 func (f *MethodMatchIncludeFilter) Filter(msg *protocol.Message) (*protocol.Message, bool) {
-	if f.r.MatchString(msg.Data.Method) {
+	if f.r.MatchString(msg.Method) {
 		return msg, true
 	}
 	return nil, false

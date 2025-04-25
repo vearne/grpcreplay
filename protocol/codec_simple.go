@@ -19,23 +19,43 @@ type CodecSimple struct{}
 
 func (c CodecSimple) Marshal(msg *Message) ([]byte, error) {
 	buff := bytes.NewBuffer(make([]byte, 0))
-	//{version} {uuid} {start-timestamp}
-	buff.WriteString(fmt.Sprintf("%d %s %d", msg.Meta.Version, msg.Meta.UUID, msg.Meta.Timestamp))
-	data, err := json.Marshal(msg.Data)
+	// line 1
+	//{version} {uuid} {start-timestamp} {containResponse}
+	fmt.Fprintf(buff, "%d %s %d %d", msg.Meta.Version, msg.Meta.UUID,
+		msg.Meta.Timestamp, bool2Int(msg.Meta.ContainResponse))
+	buff.Write([]byte{'\n'})
+	// line 2
+	// method
+	buff.WriteString(msg.Method)
+	buff.Write([]byte{'\n'})
+	// line 3
+	// request
+	data, err := json.Marshal(msg.Request)
 	if err != nil {
 		return nil, err
 	}
-	buff.Write([]byte{'\n'})
 	buff.Write(data)
+	// line 4
+	// response (optional)
+	if msg.Meta.ContainResponse {
+		buff.Write([]byte{'\n'})
+		data, err = json.Marshal(msg.Response)
+		if err != nil {
+			return nil, err
+		}
+		buff.Write(data)
+	}
+
 	return buff.Bytes(), nil
 }
 
 func (c CodecSimple) Unmarshal(data []byte, msg *Message) error {
 	var err error
-	index := bytes.IndexByte(data, '\n')
-	line1 := string(data[0:index])
+	lines := bytes.Split(data, []byte{'\n'})
+	// line 1
+	line1 := string(lines[0])
 	strList := strings.Split(line1, " ")
-	if len(strList) != 3 {
+	if len(strList) != 4 {
 		return consts.ErrProtocal
 	}
 	msg.Meta.Version, err = strconv.Atoi(strList[0])
@@ -49,13 +69,43 @@ func (c CodecSimple) Unmarshal(data []byte, msg *Message) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(data[index+1:], &msg.Data)
+	tmp, err = strconv.Atoi(strList[3])
 	if err != nil {
 		return err
+	}
+	msg.Meta.ContainResponse = int2bool(tmp)
+	if msg.Meta.ContainResponse {
+		msg.Response = &MsgItem{}
+	}
+	// line 2
+	msg.Method = string(lines[1])
+	// line 3
+	msg.Request = &MsgItem{}
+	err = json.Unmarshal(lines[2], &msg.Request)
+	if err != nil {
+		return err
+	}
+	// line 4
+	if msg.Meta.ContainResponse && len(lines) >= 4 {
+		err = json.Unmarshal(lines[3], &msg.Response)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (c CodecSimple) Name() string {
 	return CodecSimpleName
+}
+
+func bool2Int(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func int2bool(v int) bool {
+	return v > 0
 }

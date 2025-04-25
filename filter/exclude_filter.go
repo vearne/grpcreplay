@@ -17,7 +17,7 @@ func NewMethodExcludeFilter(execlude string) *MethodExcludeFilter {
 
 // Filter :If ok is true, it means that the message can pass
 func (f *MethodExcludeFilter) Filter(msg *protocol.Message) (*protocol.Message, bool) {
-	if strings.Contains(msg.Data.Method, f.exclude) {
+	if strings.Contains(msg.Method, f.exclude) {
 		return nil, false
 	}
 	return msg, true
