@@ -50,6 +50,8 @@ func (sb *TCPBuffer) Read(p []byte) (n int, err error) {
 			sb.updateCounters(n)
 			return n, err
 		}
+	} else {
+		sb.buffer.Reset()
 	}
 
 	// blocking util read success or error occur
