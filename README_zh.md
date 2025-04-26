@@ -57,6 +57,7 @@ make build
 3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. 只支持Unary RPC，不支持Streaming RPC
 5. macOS上需要sudo
+6. client和server必须位于不同的主机
 ```
 sudo -s
 ```

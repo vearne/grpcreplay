@@ -59,6 +59,7 @@ is used to kill the old connection and force the client to initiate a new connec
 3. The gRPC server needs to enable reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
 4. Only supports Unary RPC, not Streaming RPC
 5. Root permissions required on macOS
+6. client and server must be on different hosts
 ```
 sudo -s
 ```
