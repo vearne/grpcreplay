@@ -113,27 +113,8 @@ type RAWInput struct {
 	recordResponse bool
 }
 
-func findOneServerAddr(host string, port int) string {
-	if len(host) <= 0 {
-		itfStatList, err := psnet.Interfaces()
-		if err != nil {
-			panic(err)
-		}
-		for _, itf := range itfStatList {
-			for _, addr := range itf.Addrs {
-				idx := strings.LastIndex(addr.Addr, "/")
-				ip := addr.Addr[0:idx]
-				if util.IsIPv4(ip) {
-					return fmt.Sprintf("%v:%v", ip, port)
-				}
-			}
-		}
-	}
-	return fmt.Sprintf("%v:%v", host, port)
-}
-
 // NewRAWInput constructor for RAWInput. Accepts raw input config as arguments.
-func NewRAWInput(address string, recordResponse bool) (*RAWInput, error) {
+func NewRAWInput(address string, recordResponse bool, finder http2.PBFinder) (*RAWInput, error) {
 	slog.Debug("address:%q", address)
 
 	host, port, err := net.SplitHostPort(address)
@@ -150,7 +131,7 @@ func NewRAWInput(address string, recordResponse bool) (*RAWInput, error) {
 	}
 	i.ipSet = util.NewStringSet()
 	i.outputChan = make(chan *http2.NetPkg, 100)
-	i.Processor = http2.NewProcessor(i.outputChan, findOneServerAddr(host, i.port), i.recordResponse)
+	i.Processor = http2.NewProcessor(i.outputChan, recordResponse, finder)
 
 	var deviceList []string
 	itfStatList, err := psnet.Interfaces()

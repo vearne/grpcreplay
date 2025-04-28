@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc" // nolint: staticcheck
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/patrickmn/go-cache"
+	"github.com/vearne/grpcreplay/http2"
 	"github.com/vearne/grpcreplay/protocol"
 	slog "github.com/vearne/simplelog"
 	"google.golang.org/grpc"
-	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"os"
 	"strings"
 )
@@ -79,7 +78,7 @@ type GRPCOutput struct {
 	msgChannel chan *protocol.Message
 }
 
-func NewGRPCOutput(addr string, workerNum int) *GRPCOutput {
+func NewGRPCOutput(addr string, workerNum int, finder http2.PBFinder) *GRPCOutput {
 	var err error
 	var o GRPCOutput
 
@@ -89,10 +88,7 @@ func NewGRPCOutput(addr string, workerNum int) *GRPCOutput {
 		slog.Fatal("grpcurl.BlockingDial :%v", err)
 	}
 	// 通过反射获取接口定义
-	// *grpcreflect.Client
-	var refClient = grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(o.cc))
-	o.descSource = NewDescSrcWrapper(grpcurl.DescriptorSourceFromServer(ctx, refClient))
-
+	o.descSource = NewDescSrcWrapper(finder.GetDescriptorSource())
 	o.msgChannel = make(chan *protocol.Message, 100)
 
 	for i := 0; i < workerNum; i++ {

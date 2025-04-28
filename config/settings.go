@@ -103,4 +103,8 @@ type AppSettings struct {
 	Codec string `json:"codec"`
 
 	RecordResponse bool `json:"record-response"`
+
+	// file or directory
+	ProtoFileStr string `json:"proto"`
+	ProtoFiles   []string
 }
