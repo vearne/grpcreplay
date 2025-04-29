@@ -187,10 +187,12 @@ func parseSettings(settings *config.AppSettings) {
 	}
 	// get path information
 	fileInfo, err := os.Stat(settings.ProtoFileStr)
-	if os.IsNotExist(err) {
-		slog.Fatal("path [%s] does not exist", settings.ProtoFileStr)
-	} else {
-		slog.Fatal("error occurred while checking path %s, %v", settings.ProtoFileStr, err)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Fatal("path [%s] does not exist", settings.ProtoFileStr)
+		} else {
+			slog.Fatal("error occurred while checking path %s, %v", settings.ProtoFileStr, err)
+		}
 	}
 
 	fileSet := util.NewStringSet()

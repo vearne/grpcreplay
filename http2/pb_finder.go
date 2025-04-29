@@ -39,7 +39,7 @@ func NewFilePBFinder(protoFiles []string) *FilePBFinder {
 	var f FilePBFinder
 	var err error
 	f.protoFiles = protoFiles
-	f.ds, err = grpcurl.DescriptorSourceFromProtoSets(protoFiles...)
+	f.ds, err = grpcurl.DescriptorSourceFromProtoFiles(nil, protoFiles...)
 	if err != nil {
 		slog.Fatal("NewFilePBFinder, %v", err)
 	}

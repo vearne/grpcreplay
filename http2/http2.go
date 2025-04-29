@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -372,7 +373,7 @@ func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
 		return
 	}
 	for _, field := range fields {
-		item.Headers[field.Name] = field.Value
+		item.Headers.Store(field.Name, field.Value)
 		if field.Name == PseudoHeaderPath {
 			item.Method = field.Value
 		}
@@ -413,7 +414,7 @@ func (hc *Http2Conn) _processFrameContinuation(f *FrameBase,
 		return
 	}
 	for _, field := range fields {
-		item.Headers[field.Name] = field.Value
+		item.Headers.Store(field.Name, field.Value)
 		slog.Debug(field.String())
 	}
 }
@@ -473,8 +474,8 @@ type HTTPItem struct {
 	EndHeader bool
 	EndStream bool
 
-	Headers map[string]string `json:"headers"`
-	Method  string            `json:"method"`
+	Headers *sync.Map `json:"headers"`
+	Method  string    `json:"method"`
 
 	DataBuf *bytes.Buffer `json:"-"`
 }
@@ -482,16 +483,15 @@ type HTTPItem struct {
 func (item *HTTPItem) Reset() {
 	item.EndStream = false
 	item.EndHeader = false
-	item.Headers = make(map[string]string)
-	//item.Body = make([]byte, 0)
+	item.Headers.Clear()
 	item.DataBuf.Reset()
 }
 
 func NewHTTPItem() *HTTPItem {
 	var item HTTPItem
-	item.Headers = make(map[string]string)
 	item.EndStream = false
 	item.EndHeader = false
+	item.Headers = &sync.Map{}
 	item.DataBuf = bytes.NewBuffer([]byte{})
 	return &item
 }
@@ -526,10 +526,11 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	msg.Meta.ContainResponse = s.RecordResponse
 
 	msg.Method = strings.TrimSpace(s.Request.Method)
-	codecType := getCodecType(s.Request.Headers)
+
 	// 1. ###### request ######
 	msg.Request = &protocol.MsgItem{}
-	msg.Request.Headers = s.Request.Headers
+	msg.Request.Headers = toNormalMap(s.Request.Headers)
+	codecType := getCodecType(msg.Request.Headers)
 
 	if codecType == CodecProtobuf {
 		// Note: Temporarily only handle the case where the encoding method is Protobuf
@@ -549,7 +550,8 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	// 2. ###### response ######
 	if s.RecordResponse {
 		msg.Response = &protocol.MsgItem{}
-		msg.Response.Headers = s.Response.Headers
+		msg.Response.Headers = toNormalMap(s.Response.Headers)
+		codecType = getCodecType(msg.Response.Headers)
 
 		if codecType == CodecProtobuf {
 			msg.Response.Body, err = changeToJsonStr(dataType.OutType, s.Response.DataBuf.Bytes())
@@ -563,6 +565,17 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	}
 
 	return &msg, nil
+}
+
+func toNormalMap(m *sync.Map) map[string]string {
+	result := make(map[string]string)
+	m.Range(func(key, value any) bool {
+		k := key.(string)
+		v := value.(string)
+		result[k] = v
+		return true
+	})
+	return result
 }
 
 func changeToJsonStr(pbMsg proto.Message, data []byte) (string, error) {
@@ -591,11 +604,12 @@ type FrameBase struct {
 	DirectConn DirectConn
 	// input or output ?
 	InputFlag bool
-	StreamID  uint32
-	Type      uint8
-	Flags     uint8
-	Length    uint32
-	Payload   []byte
+
+	StreamID uint32
+	Type     uint8
+	Flags    uint8
+	Length   uint32
+	Payload  []byte
 }
 
 func ParseFrameBase(b []byte, dc DirectConn, inputFlag bool) (*FrameBase, error) {

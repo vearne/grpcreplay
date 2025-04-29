@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	_ "google.golang.org/grpc/encoding/gzip" // Registration of gzip Compressor will be completed
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"log"
 	"net"
@@ -48,7 +47,7 @@ func main() {
 
 	// 注册反射服务
 	// Register reflection service on gRPC server.
-	reflection.Register(server)
+	//reflection.Register(server)
 	lis, err := net.Listen("tcp4", address)
 	if err != nil {
 		log.Fatalf("net.Listen err: %v", err)

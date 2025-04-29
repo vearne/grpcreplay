@@ -56,13 +56,19 @@ is used to kill the old connection and force the client to initiate a new connec
 1. Temporarily only supports h2c, not h2
 2. The current gRPC encoding only supports Protobuf.
    refer to [encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
-3. The gRPC server needs to enable reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
-4. Only supports Unary RPC, not Streaming RPC
+3. Parsing Protobuf requires providing protobuf definition, which supports the following two methods.<br/>
+3.1 gRPC server enables reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)  (默认)<br/>
+3.2 provide local protobuf definition file
+```
+./grpcr --input-raw="10.2.134.105:35001" --output-stdout --record-response --proto=./proto
+```
+`--proto` You can specify a file or folder. If it is a folder, all files with the suffix ".proto" will be loaded.
+4.  Only supports Unary RPC, not Streaming RPC
 5. Root permissions required on macOS
-6. client and server must be on different hosts
 ```
 sudo -s
 ```
+6. client and server must be on different hosts
 
 ## Usage
 Capture gRPC request on "0.0.0.0:35001" and print in console

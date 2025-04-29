@@ -8,7 +8,7 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 
 ## 特性
 * 支持过滤器
-* 可以解析Protobuf,**需要grpc反射**,参考[GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
+* 可以解析Protobuf(需要提供protobuf定义)
 * 支持多种input和output
 * 支持多种gRPC请求的编码形式(可以方便的扩展)
 * 支持gRPC请求重放，支持以多倍速重放
@@ -54,13 +54,20 @@ make build
 1. 暂时只支持h2c, 不支持h2
 2. 目前gRPC的编码只支持Protobuf。
    参考[encoding](https://github.com/grpc/grpc-go/blob/master/Documentation/encoding.md)
-3. gPRC服务端需要开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)
+3. 解析Protobuf需要提供protobuf定义，支持以下2种方式<br/>
+3.1 gPRC服务端开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)  (默认)<br/>
+3.2 提供本地protobuf定义文件
+```
+./grpcr --input-raw="10.2.134.105:35001" --output-stdout --record-response --proto=./proto
+```
+`--proto`可以指定文件或者文件夹，如果是文件夹，则后缀为“.proto”的文件都会被加载
+
 4. 只支持Unary RPC，不支持Streaming RPC
 5. macOS上需要sudo
-6. client和server必须位于不同的主机
 ```
 sudo -s
 ```
+6. client和server必须位于不同的主机
 
 ## 用法
 捕获"0.0.0.0:35001"上的gRPC请求，并打印在控制台中

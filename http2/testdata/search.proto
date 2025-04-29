@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "testdata/common.proto";
+
+service SearchService {
+    rpc Search(SearchRequest) returns (SearchResponse) {}
+    rpc CurrentTime(TimeRequest) returns (TimeResponse) {}
+    rpc SendMuchData(MuchRequest) returns (MuchResponse) {}
+}
+
+message Book {
+    string name = 1;
+    int32 id = 2;
+}
+
+
+message MuchRequest {
+    uint64 requestId = 1;
+    repeated Book books = 2;
+}
+
+message MuchResponse {
+    uint64 requestId = 1;
+}
+
+
+message TimeRequest {
+    uint64 requestId = 1;
+}
+
+message TimeResponse {
+    string currentTime = 1;
+}
+
+message SearchRequest {
+    string staffName = 1;
+    bool gender = 2;
+    uint32 age = 3;
+    ExtraInfo extra = 4;
+}
+
+message SearchResponse {
+    int64 staffID = 1;
+    string staffName = 2;
+}
