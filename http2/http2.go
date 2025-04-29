@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/vearne/grpcreplay/protocol"
+	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
 	"golang.org/x/net/http2/hpack"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -15,11 +16,13 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
-	PseudoHeaderPath = ":path"
+	PseudoHeaderPath    = ":path"
+	WaitDefaultDuration = 3 * time.Second
 )
 
 const (
@@ -269,24 +272,34 @@ func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
 func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	// Set the state of the stream
 	stream := hc.Streams[f.StreamID%StreamArraySize]
-	stream.StreamID = f.StreamID
+	atomic.StoreUint32(&stream.StreamID, f.StreamID)
 
 	//Is it input or output?
 	if f.InputFlag {
 		hc._processFrameData(f, stream.Request)
+		if stream.Request.EndStream.Load() {
+			stream.done <- struct{}{}
+		}
 	} else {
 		hc._processFrameData(f, stream.Response)
 	}
 
-	if (!hc.RecordResponse && stream.Request.EndStream) || (hc.RecordResponse && stream.Response.EndStream) {
-		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
-		if pErr == nil {
-			hc.Processor.OutputChan <- pMsg
-		} else {
-			slog.Warn("stream.toMsg, error:%v", pErr)
-		}
-		stream.Reset()
+	if !hc.RecordResponse && stream.Request.EndStream.Load() {
+		hc.FinishStream(stream)
+	} else if hc.RecordResponse && stream.Response.EndStream.Load() {
+		WaitTimeout(stream.done, WaitDefaultDuration)
+		hc.FinishStream(stream)
 	}
+}
+
+func (hc *Http2Conn) FinishStream(stream *Stream) {
+	pMsg, pErr := stream.toMsg(hc.Processor.Finder)
+	if pErr == nil {
+		hc.Processor.OutputChan <- pMsg
+	} else {
+		slog.Warn("stream.toMsg, error:%v", pErr)
+	}
+	stream.Reset()
 }
 
 func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
@@ -296,9 +309,10 @@ func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
 		return
 	}
 
-	item.EndStream = fd.EndStream
-	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
-		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
+	item.EndStream.Store(fd.EndStream)
+
+	slog.Debug("processFrameData, Stream:%v, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
+		f.StreamID, fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
 
 	var gzipReader *gzip.Reader
 
@@ -331,23 +345,24 @@ func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
 
 func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
 	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
-	stream.StreamID = f.StreamID
+	stream := hc.Streams[f.StreamID%StreamArraySize]
+	atomic.StoreUint32(&stream.StreamID, f.StreamID)
 
 	//Is it input or output?
 	if f.InputFlag {
 		hc._processFrameHeader(f, hc.Input, stream.Request)
+		if stream.Request.EndStream.Load() {
+			stream.done <- struct{}{}
+		}
 	} else {
 		hc._processFrameHeader(f, hc.Output, stream.Response)
 	}
 
-	if (!hc.RecordResponse && stream.Request.EndStream) || (hc.RecordResponse && stream.Response.EndStream) {
-		pMsg, pErr := stream.toMsg(hc.Processor.Finder)
-		if pErr == nil {
-			hc.Processor.OutputChan <- pMsg
-		}
-		stream.Reset()
+	if !hc.RecordResponse && stream.Request.EndStream.Load() {
+		hc.FinishStream(stream)
+	} else if hc.RecordResponse && stream.Response.EndStream.Load() {
+		WaitTimeout(stream.done, WaitDefaultDuration)
+		hc.FinishStream(stream)
 	}
 }
 
@@ -359,8 +374,8 @@ func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
 		return
 	}
 
-	item.EndHeader = fh.EndHeader
-	item.EndStream = fh.EndStream
+	item.EndHeader.Store(fh.EndHeader)
+	item.EndStream.Store(fh.EndStream)
 
 	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
 		f.DirectConn.String(), f.StreamID, fh.EndHeader, fh.EndStream)
@@ -374,9 +389,6 @@ func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
 	}
 	for _, field := range fields {
 		item.Headers.Store(field.Name, field.Value)
-		if field.Name == PseudoHeaderPath {
-			item.Method = field.Value
-		}
 		slog.Debug(field.String())
 	}
 }
@@ -384,7 +396,7 @@ func (hc *Http2Conn) _processFrameHeader(f *FrameBase, parser *MessageParser,
 func (hc *Http2Conn) processFrameContinuation(f *FrameBase) {
 	// Set the state of the stream
 	stream := hc.Streams[f.StreamID%StreamArraySize]
-	stream.StreamID = f.StreamID
+	atomic.StoreUint32(&stream.StreamID, f.StreamID)
 
 	//Is it input or output?
 	if f.InputFlag {
@@ -402,10 +414,10 @@ func (hc *Http2Conn) _processFrameContinuation(f *FrameBase,
 		return
 	}
 
-	item.EndHeader = fc.EndHeader
+	item.EndHeader.Store(fc.EndHeader)
 
 	slog.Debug("Connection:%v, stream:%v, EndHeader:%v, EndStream:%v",
-		hc.DirectConn.String(), f.StreamID, item.EndHeader, item.EndStream)
+		hc.DirectConn.String(), f.StreamID, fc.EndHeader, item.EndStream.Load())
 
 	hdec := parser.HeaderDecoder
 	fields, err := hdec.DecodeFull(fc.HeaderBlockFragment)
@@ -426,15 +438,14 @@ func (hc *Http2Conn) processFrameGoAway(f *FrameBase) {
 
 func (hc *Http2Conn) processFrameRSTStream(f *FrameBase) {
 	// Set the state of the stream
-	index := f.StreamID % StreamArraySize
-	stream := hc.Streams[index]
+	stream := hc.Streams[f.StreamID%StreamArraySize]
 	stream.Reset()
 }
 
 func (hc *Http2Conn) processFrameSetting(f *FrameBase) {
 	// Set the state of the stream
 	stream := hc.Streams[f.StreamID%StreamArraySize]
-	stream.StreamID = f.StreamID
+	atomic.StoreUint32(&stream.StreamID, f.StreamID)
 
 	//Is it input or output?
 	if f.InputFlag {
@@ -468,32 +479,31 @@ type Stream struct {
 	RecordResponse bool
 	Request        *HTTPItem
 	Response       *HTTPItem
+	done           chan struct{}
 }
 
 type HTTPItem struct {
-	EndHeader bool
-	EndStream bool
+	EndHeader atomic.Bool
+	EndStream atomic.Bool
 
-	Headers *sync.Map `json:"headers"`
-	Method  string    `json:"method"`
-
-	DataBuf *bytes.Buffer `json:"-"`
-}
-
-func (item *HTTPItem) Reset() {
-	item.EndStream = false
-	item.EndHeader = false
-	item.Headers.Clear()
-	item.DataBuf.Reset()
+	Headers *sync.Map                 `json:"headers"`
+	DataBuf *util.GoroutineSafeBuffer `json:"-"`
 }
 
 func NewHTTPItem() *HTTPItem {
 	var item HTTPItem
-	item.EndStream = false
-	item.EndHeader = false
+	item.EndStream.Store(false)
+	item.EndHeader.Store(false)
 	item.Headers = &sync.Map{}
-	item.DataBuf = bytes.NewBuffer([]byte{})
+	item.DataBuf = &util.GoroutineSafeBuffer{}
 	return &item
+}
+
+func (item *HTTPItem) Reset() {
+	item.EndStream.Store(false)
+	item.EndHeader.Store(false)
+	item.Headers.Clear()
+	item.DataBuf.Reset()
 }
 
 func NewStream(recordResponse bool) *Stream {
@@ -503,11 +513,12 @@ func NewStream(recordResponse bool) *Stream {
 	if recordResponse {
 		s.Response = NewHTTPItem()
 	}
+	s.done = make(chan struct{}, 1)
 	return &s
 }
 
 func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
-	method := strings.TrimSpace(s.Request.Method)
+	method := strings.TrimSpace(getMethod(s.Request.Headers))
 	if len(method) <= 0 {
 		slog.Error("method is empty, this is illegal")
 		return nil, errors.New("method is empty")
@@ -524,16 +535,14 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	msg.Meta.UUID = id.String()
 	msg.Meta.Timestamp = time.Now().UnixNano()
 	msg.Meta.ContainResponse = s.RecordResponse
-
-	msg.Method = strings.TrimSpace(s.Request.Method)
+	msg.Method = method
 
 	// 1. ###### request ######
 	msg.Request = &protocol.MsgItem{}
 	msg.Request.Headers = toNormalMap(s.Request.Headers)
 	codecType := getCodecType(msg.Request.Headers)
 
-	if codecType == CodecProtobuf {
-		// Note: Temporarily only handle the case where the encoding method is Protobuf
+	if codecType == CodecProtobuf { // Note: Temporarily only handle the case where the encoding method is Protobuf
 		dataType, err = finder.Get(msg.Method)
 		if err != nil {
 			slog.Error("finder.Get, method:%v, error:%v", method, err)
@@ -553,7 +562,12 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 		msg.Response.Headers = toNormalMap(s.Response.Headers)
 		codecType = getCodecType(msg.Response.Headers)
 
-		if codecType == CodecProtobuf {
+		if codecType == CodecProtobuf { // Note: Temporarily only handle the case where the encoding method is Protobuf
+			dataType, err = finder.Get(msg.Method)
+			if err != nil {
+				slog.Error("finder.Get, method:%v, error:%v", method, err)
+				return nil, err
+			}
 			msg.Response.Body, err = changeToJsonStr(dataType.OutType, s.Response.DataBuf.Bytes())
 			if err != nil {
 				slog.Error("changeToJsonStr, method:%v, error:%v", method, err)
@@ -565,6 +579,17 @@ func (s *Stream) toMsg(finder PBFinder) (*protocol.Message, error) {
 	}
 
 	return &msg, nil
+}
+
+func getMethod(m *sync.Map) string {
+	var method string
+	m.Range(func(key, value any) bool {
+		if key == PseudoHeaderPath {
+			method = value.(string)
+		}
+		return true
+	})
+	return method
 }
 
 func toNormalMap(m *sync.Map) map[string]string {
@@ -592,11 +617,12 @@ func changeToJsonStr(pbMsg proto.Message, data []byte) (string, error) {
 }
 
 func (s *Stream) Reset() {
-	s.StreamID = 0
+	atomic.StoreUint32(&s.StreamID, 0)
 	s.Request.Reset()
 	if s.Response != nil {
 		s.Response.Reset()
 	}
+	s.done = make(chan struct{}, 1)
 }
 
 // Frame Header
@@ -817,4 +843,13 @@ type FrameContinuation struct {
 	fb                  *FrameBase
 	EndHeader           bool
 	HeaderBlockFragment []byte
+}
+
+func WaitTimeout(ch chan struct{}, duration time.Duration) {
+	select {
+	case <-ch:
+		slog.Debug("input processed")
+	case <-time.After(duration):
+		slog.Warn("wait input processed, timeout")
+	}
 }
