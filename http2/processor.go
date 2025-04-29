@@ -14,12 +14,12 @@ type Processor struct {
 	RecordResponse bool
 }
 
-func NewProcessor(input chan *NetPkg, svcAddr string, recordResponse bool) *Processor {
+func NewProcessor(input chan *NetPkg, recordResponse bool, finder PBFinder) *Processor {
 	var p Processor
 	p.ConnRepository = make(map[DirectConn]*Http2Conn, 100)
 	p.InputChan = input
 	p.OutputChan = make(chan *protocol.Message, 100)
-	p.Finder = NewReflectionPBFinder(svcAddr)
+	p.Finder = finder
 	p.RecordResponse = recordResponse
 	slog.Info("create new Processor")
 	return &p

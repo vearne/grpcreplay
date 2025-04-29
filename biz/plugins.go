@@ -2,9 +2,13 @@ package biz
 
 import (
 	"fmt"
+	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/vearne/grpcreplay/config"
+	"github.com/vearne/grpcreplay/http2"
 	"github.com/vearne/grpcreplay/plugin"
+	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
+	"net"
 	"net/url"
 	"reflect"
 	"strings"
@@ -19,11 +23,25 @@ type InOutPlugins struct {
 
 // NewPlugins specify and initialize all available plugins
 func NewPlugins(settings *config.AppSettings) *InOutPlugins {
+	//  get proto from files
+	var finder http2.PBFinder
+	if len(settings.ProtoFiles) > 0 {
+		finder = http2.NewFilePBFinder(settings.ProtoFiles)
+	}
+
 	plugins := new(InOutPlugins)
 
 	for _, item := range settings.InputRAW {
 		slog.Debug("options: %q", item)
-		plugins.registerPlugin(plugin.NewRAWInput, item, settings.RecordResponse)
+		host, port, err := net.SplitHostPort(item)
+		if err != nil {
+			slog.Warn("net.SplitHostPort:%v", err)
+			continue
+		}
+		if finder == nil {
+			finder = http2.NewReflectionPBFinder(findOneServerAddr(host, port))
+		}
+		plugins.registerPlugin(plugin.NewRAWInput, item, settings.RecordResponse, finder)
 	}
 
 	for _, path := range settings.InputFileDir {
@@ -57,7 +75,10 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if err != nil {
 			slog.Fatal("OutputGRPC addr error:%v", err)
 		}
-		plugins.registerPlugin(plugin.NewGRPCOutput, addr, settings.OutputGRPCWorkerNumber)
+		if finder == nil {
+			finder = http2.NewReflectionPBFinder(addr)
+		}
+		plugins.registerPlugin(plugin.NewGRPCOutput, addr, settings.OutputGRPCWorkerNumber, finder)
 	}
 
 	for _, path := range settings.OutputFileDir {
@@ -115,4 +136,23 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 func (plugins *InOutPlugins) String() string {
 	return fmt.Sprintf("#####  len(Inputs):%d, len(Outputs):%d, len(All):%d   #####",
 		len(plugins.Inputs), len(plugins.Outputs), len(plugins.All))
+}
+
+func findOneServerAddr(host string, port string) string {
+	if len(host) <= 0 {
+		itfStatList, err := psnet.Interfaces()
+		if err != nil {
+			panic(err)
+		}
+		for _, itf := range itfStatList {
+			for _, addr := range itf.Addrs {
+				idx := strings.LastIndex(addr.Addr, "/")
+				ip := addr.Addr[0:idx]
+				if util.IsIPv4(ip) {
+					return fmt.Sprintf("%v:%v", ip, port)
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("%v:%v", host, port)
 }

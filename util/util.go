@@ -1,0 +1,36 @@
+package util
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func ListFilesRecursively(dir string, set *StringSet) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("can't open %s: %v", dir, err)
+	}
+	defer d.Close()
+
+	entries, err := d.ReadDir(0) // 0 means read all entries
+	if err != nil {
+		return fmt.Errorf("read %s, error: %v", dir, err)
+	}
+
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+
+		if entry.IsDir() {
+			if err := ListFilesRecursively(path, set); err != nil {
+				return err
+			}
+		} else {
+			if strings.HasSuffix(path, ".proto") {
+				set.Add(path)
+			}
+		}
+	}
+	return nil
+}

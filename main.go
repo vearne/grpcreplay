@@ -6,9 +6,11 @@ import (
 	"github.com/vearne/grpcreplay/biz"
 	"github.com/vearne/grpcreplay/config"
 	"github.com/vearne/grpcreplay/consts"
+	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -118,6 +120,9 @@ func init() {
 
 	flag.BoolVar(&settings.RecordResponse, "record-response", false,
 		"record response")
+
+	flag.StringVar(&settings.ProtoFileStr, "proto", "",
+		"(optional) proto source file or the directory containing the proto file.")
 }
 
 func main() {
@@ -138,6 +143,7 @@ func main() {
 		return
 	}
 
+	parseSettings(&settings)
 	printSettings(&settings)
 
 	filterChain, err := biz.NewFilterChain(&settings)
@@ -174,6 +180,33 @@ func main() {
 	os.Exit(exit)
 }
 
+func parseSettings(settings *config.AppSettings) {
+	settings.ProtoFileStr = strings.TrimSpace(settings.ProtoFileStr)
+	if len(settings.ProtoFileStr) <= 0 {
+		return
+	}
+	// get path information
+	fileInfo, err := os.Stat(settings.ProtoFileStr)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Fatal("path [%s] does not exist", settings.ProtoFileStr)
+		} else {
+			slog.Fatal("error occurred while checking path %s, %v", settings.ProtoFileStr, err)
+		}
+	}
+
+	fileSet := util.NewStringSet()
+	if fileInfo.IsDir() {
+		err := util.ListFilesRecursively(settings.ProtoFileStr, fileSet)
+		if err != nil {
+			slog.Fatal("failed to obtain proto:%v", err)
+		}
+		settings.ProtoFiles = fileSet.ToArray()
+	} else {
+		settings.ProtoFiles = []string{settings.ProtoFileStr}
+	}
+}
+
 func printSettings(settings *config.AppSettings) {
 	slog.Info("input-raw, %v", settings.InputRAW)
 	slog.Info("input-file-directory, %v", settings.InputFileDir)
@@ -189,4 +222,9 @@ func printSettings(settings *config.AppSettings) {
 	slog.Info("output-rocketmq-topic, %v", settings.OutputRocketMQTopic)
 
 	slog.Info("record-response, %v", settings.RecordResponse)
+
+	if len(settings.ProtoFileStr) > 0 {
+		slog.Info("ProtoFileStr, %v", settings.ProtoFileStr)
+		slog.Info("ProtoFiles, %v", settings.ProtoFiles)
+	}
 }
