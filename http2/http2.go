@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	PseudoHeaderPath = ":path"
+	PseudoHeaderPath    = ":path"
+	WaitDefaultDuration = 3 * time.Second
 )
 
 const (
@@ -286,7 +287,7 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 	if !hc.RecordResponse && stream.Request.EndStream.Load() {
 		hc.FinishStream(stream)
 	} else if hc.RecordResponse && stream.Response.EndStream.Load() {
-		WaitTimeout(stream.done, 3*time.Second)
+		WaitTimeout(stream.done, WaitDefaultDuration)
 		hc.FinishStream(stream)
 	}
 }
@@ -310,8 +311,8 @@ func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
 
 	item.EndStream.Store(fd.EndStream)
 
-	slog.Debug("processFrameData, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
-		fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
+	slog.Debug("processFrameData, Stream:%v, Padded:%v, PadLength:%v, EndStream:%v, len(fd.Data):%v",
+		f.StreamID, fd.Padded, fd.PadLength, fd.EndStream, len(fd.Data))
 
 	var gzipReader *gzip.Reader
 
@@ -360,7 +361,7 @@ func (hc *Http2Conn) processFrameHeader(f *FrameBase) {
 	if !hc.RecordResponse && stream.Request.EndStream.Load() {
 		hc.FinishStream(stream)
 	} else if hc.RecordResponse && stream.Response.EndStream.Load() {
-		WaitTimeout(stream.done, 3*time.Second)
+		WaitTimeout(stream.done, WaitDefaultDuration)
 		hc.FinishStream(stream)
 	}
 }
@@ -849,6 +850,6 @@ func WaitTimeout(ch chan struct{}, duration time.Duration) {
 	case <-ch:
 		slog.Debug("input processed")
 	case <-time.After(duration):
-		slog.Debug("wait input processed, timeout")
+		slog.Warn("wait input processed, timeout")
 	}
 }
