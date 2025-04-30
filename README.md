@@ -60,7 +60,7 @@ is used to kill the old connection and force the client to initiate a new connec
 3.1 gRPC server enables reflection [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)  (默认)<br/>
 3.2 provide local protobuf definition file
 ```
-./grpcr --input-raw="10.2.134.105:35001" --output-stdout --record-response --proto=./proto
+./grpcr --input-raw="0.0.0.0:35001" --output-stdout --record-response --proto=./proto
 ```
 `--proto` You can specify a file or folder. If it is a folder, all files with the suffix ".proto" will be loaded.
 4.  Only supports Unary RPC, not Streaming RPC

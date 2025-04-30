@@ -29,98 +29,95 @@ type PBFinder interface {
 	GetDescriptorSource() grpcurl.DescriptorSource
 }
 
-type FilePBFinder struct {
+type PBFinderDelegate struct {
 	ds         grpcurl.DescriptorSource
 	innerCache *cache.Cache
-	protoFiles []string
 }
 
-func NewFilePBFinder(protoFiles []string) *FilePBFinder {
-	var f FilePBFinder
-	var err error
-	f.protoFiles = protoFiles
-	f.ds, err = grpcurl.DescriptorSourceFromProtoFiles(nil, protoFiles...)
+func NewPBFinderDelegate(ds grpcurl.DescriptorSource) *PBFinderDelegate {
+	var f PBFinderDelegate
+	f.ds = ds
+	f.innerCache = cache.New(cache.NoExpiration, cache.NoExpiration)
+	return &f
+}
+
+func (f *PBFinderDelegate) Get(svcAndMethod string) (*MethodInputOutput, error) {
+	if v, ok := f.innerCache.Get(svcAndMethod); ok {
+		slog.Debug("PBFinderDelegate.Get,svcAndMethod:%v, hit cache", svcAndMethod)
+
+		cached := v.(*MethodInputOutput)
+		// return a fresh copy – no shared state
+		return &MethodInputOutput{
+			InType:  proto.Clone(cached.InType),
+			OutType: proto.Clone(cached.OutType),
+		}, nil
+	}
+
+	m, err := f.Find(svcAndMethod)
+	if err != nil {
+		slog.Warn("PBFinderDelegate.Get,svcAndMethod:%v, error:%v", svcAndMethod, err)
+		return nil, err
+	}
+
+	f.innerCache.Set(svcAndMethod, m, cache.NoExpiration)
+	return m, nil
+}
+
+func (f *PBFinderDelegate) Find(svcAndMethod string) (*MethodInputOutput, error) {
+	slog.Debug("FilePBFinder, svcAndMethod:%v", svcAndMethod)
+	svc, method := parseSymbol(svcAndMethod)
+	slog.Info("parseSymbol, svc:%v, method:%v", svc, method)
+	dsc, err := f.ds.FindSymbol(svc)
+	if err != nil {
+		return nil, fmt.Errorf("descSource.FindSymbol,service:%v,method:%v,error:%w", svc, method, err)
+	}
+	sd, ok := dsc.(*desc.ServiceDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("change to *desc.ServiceDescriptor,service:%v, method:%v, type:%T",
+			svc, method, dsc)
+	}
+	mtd := sd.FindMethodByName(method)
+	inType, err := getDataType(mtd.GetInputType())
+	if err != nil {
+		slog.Error("Find, svc:%v, method:%v, error:%v", svc, method, err)
+		return nil, err
+	}
+	outType, err := getDataType(mtd.GetOutputType())
+	if err != nil {
+		slog.Error("Find, svc:%v, method:%v, error:%v", svc, method, err)
+		return nil, err
+	}
+
+	var result MethodInputOutput
+	result.InType = dynamicpb.NewMessage(inType)
+	result.OutType = dynamicpb.NewMessage(outType)
+	return &result, nil
+}
+
+func (f *PBFinderDelegate) GetDescriptorSource() grpcurl.DescriptorSource {
+	return f.ds
+}
+
+func NewFilePBFinder(protoFiles []string) PBFinder {
+	ds, err := grpcurl.DescriptorSourceFromProtoFiles(nil, protoFiles...)
 	if err != nil {
 		slog.Fatal("NewFilePBFinder, %v", err)
 	}
-	f.innerCache = cache.New(cache.NoExpiration, cache.NoExpiration)
-	return &f
+
+	return NewPBFinderDelegate(ds)
 }
 
-func (f *FilePBFinder) GetDescriptorSource() grpcurl.DescriptorSource {
-	return f.ds
-}
-
-func (f *FilePBFinder) Get(svcAndMethod string) (*MethodInputOutput, error) {
-	if v, ok := f.innerCache.Get(svcAndMethod); ok {
-		slog.Debug("FilePBFinder.Get,svcAndMethod:%v, hit cache", svcAndMethod)
-
-		cached := v.(*MethodInputOutput)
-		// return a fresh copy – no shared state
-		return &MethodInputOutput{
-			InType:  proto.Clone(cached.InType),
-			OutType: proto.Clone(cached.OutType),
-		}, nil
-	}
-
-	m, err := Find(f.ds, svcAndMethod)
-	if err != nil {
-		slog.Warn("FilePBFinder.Get,svcAndMethod:%v, error:%v", svcAndMethod, err)
-		return nil, err
-	}
-
-	f.innerCache.Set(svcAndMethod, m, cache.NoExpiration)
-	return m, nil
-}
-
-type ReflectionPBFinder struct {
-	ds         grpcurl.DescriptorSource
-	innerCache *cache.Cache
-	// server address
-	addr string
-}
-
-func NewReflectionPBFinder(addr string) *ReflectionPBFinder {
-	var f ReflectionPBFinder
-	f.innerCache = cache.New(cache.NoExpiration, cache.NoExpiration)
-	f.addr = addr
-
+func NewReflectionPBFinder(addr string) PBFinder {
 	ctx := context.Background()
 	cc, err := grpcurl.BlockingDial(ctx, "tcp", addr, nil)
 	if err != nil {
-		slog.Fatal("PBMessageFinder.FindMethodInput,addr:%v, error:%v, enable grpc reflection service?",
-			f.addr, err)
+		slog.Fatal("NewReflectionPBFinder,addr:%v, error:%v, enable grpc reflection service?",
+			addr, err)
 	}
 	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(cc))
-	f.ds = grpcurl.DescriptorSourceFromServer(ctx, refClient)
+	ds := grpcurl.DescriptorSourceFromServer(ctx, refClient)
 
-	return &f
-}
-
-func (f *ReflectionPBFinder) Get(svcAndMethod string) (*MethodInputOutput, error) {
-	if v, ok := f.innerCache.Get(svcAndMethod); ok {
-		slog.Debug("ReflectionPBFinder.Get,svcAndMethod:%v, hit cache", svcAndMethod)
-
-		cached := v.(*MethodInputOutput)
-		// return a fresh copy – no shared state
-		return &MethodInputOutput{
-			InType:  proto.Clone(cached.InType),
-			OutType: proto.Clone(cached.OutType),
-		}, nil
-	}
-
-	m, err := Find(f.ds, svcAndMethod)
-	if err != nil {
-		slog.Warn("ReflectionPBFinder.Get,svcAndMethod:%v, error:%v", svcAndMethod, err)
-		return nil, err
-	}
-
-	f.innerCache.Set(svcAndMethod, m, cache.NoExpiration)
-	return m, nil
-}
-
-func (f *ReflectionPBFinder) GetDescriptorSource() grpcurl.DescriptorSource {
-	return f.ds
+	return NewPBFinderDelegate(ds)
 }
 
 func getDataType(dataType *desc.MessageDescriptor) (protoreflect.MessageDescriptor, error) {
@@ -167,35 +164,4 @@ func constructFileDescriptorSet(set *util.StringSet, fdSet *descriptorpb.FileDes
 	for _, dependentItem := range fd.GetDependencies() {
 		constructFileDescriptorSet(set, fdSet, dependentItem)
 	}
-}
-
-func Find(ds grpcurl.DescriptorSource, svcAndMethod string) (*MethodInputOutput, error) {
-	slog.Debug("FilePBFinder, svcAndMethod:%v", svcAndMethod)
-	svc, method := parseSymbol(svcAndMethod)
-	slog.Info("parseSymbol, svc:%v, method:%v", svc, method)
-	dsc, err := ds.FindSymbol(svc)
-	if err != nil {
-		return nil, fmt.Errorf("descSource.FindSymbol,service:%v,method:%v,error:%w", svc, method, err)
-	}
-	sd, ok := dsc.(*desc.ServiceDescriptor)
-	if !ok {
-		return nil, fmt.Errorf("change to *desc.ServiceDescriptor,service:%v, method:%v, type:%T",
-			svc, method, dsc)
-	}
-	mtd := sd.FindMethodByName(method)
-	inType, err := getDataType(mtd.GetInputType())
-	if err != nil {
-		slog.Error("Find, svc:%v, method:%v, error:%v", svc, method, err)
-		return nil, err
-	}
-	outType, err := getDataType(mtd.GetOutputType())
-	if err != nil {
-		slog.Error("Find, svc:%v, method:%v, error:%v", svc, method, err)
-		return nil, err
-	}
-
-	var result MethodInputOutput
-	result.InType = dynamicpb.NewMessage(inType)
-	result.OutType = dynamicpb.NewMessage(outType)
-	return &result, nil
 }

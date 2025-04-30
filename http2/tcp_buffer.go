@@ -36,6 +36,10 @@ func NewTCPBuffer() *TCPBuffer {
 	return &sb
 }
 
+func (sb *TCPBuffer) SetExpectedSeq(expectedSeq uint32) {
+	sb.expectedSeq = expectedSeq
+}
+
 func (sb *TCPBuffer) Close() {
 	close(sb.closeChan)
 }
@@ -82,7 +86,7 @@ func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
 
 	// Discard packets outside the sliding window
 	if !validPackage(sb.expectedSeq, MaxWindowSize, tcpPkg.Seq) {
-		slog.Debug("[end]SocketBuffer.addTCP-discard packets outside the sliding window, "+
+		slog.Warn("[end]SocketBuffer.addTCP-discard packets outside the sliding window, "+
 			"size:%v, actualCanReadSize:%v, expectedSeq:%v",
 			sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
 		return
@@ -90,7 +94,7 @@ func (sb *TCPBuffer) AddTCP(tcpPkg *layers.TCP) {
 
 	// duplicate package
 	if sb.List.Get(tcpPkg.Seq) != nil {
-		slog.Debug("[end]SocketBuffer.addTCP-duplicate package, size:%v, actualCanReadSize:%v, expectedSeq:%v",
+		slog.Warn("[end]SocketBuffer.addTCP-duplicate package, size:%v, actualCanReadSize:%v, expectedSeq:%v",
 			sb.size.Load(), sb.actualCanReadSize.Load(), sb.expectedSeq)
 		return
 	}

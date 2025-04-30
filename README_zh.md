@@ -58,7 +58,7 @@ make build
 3.1 gPRC服务端开启反射 [GRPC Server Reflection Protocol](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md#grpc-server-reflection-protocol)  (默认)<br/>
 3.2 提供本地protobuf定义文件
 ```
-./grpcr --input-raw="10.2.134.105:35001" --output-stdout --record-response --proto=./proto
+./grpcr --input-raw="0.0.0.0:35001" --output-stdout --record-response --proto=./proto
 ```
 `--proto`可以指定文件或者文件夹，如果是文件夹，则后缀为“.proto”的文件都会被加载
 

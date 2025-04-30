@@ -67,33 +67,42 @@ func (l *DeviceListener) listen() error {
 		conn := netPkg.DirectConn()
 		slog.Debug("DeviceListener.listen-connection:%v, Direction:%v",
 			&conn, http2.GetDirection(netPkg.Direction))
-		if netPkg.Direction == http2.DirIncoming {
-			if l.rawInput.connSet.Has(conn) { // history connection
-				if netPkg.TCP.ACK && netPkg.IPv4 != nil {
-					slog.Debug("receive Ack package, for connection:%v, expected seq:%v, window:%v",
-						&conn, netPkg.TCP.Ack, netPkg.TCP.Window)
-					actualSeq := netPkg.TCP.Ack
+		// Handle packet based on direction
+		switch netPkg.Direction {
+		case http2.DirIncoming:
+			if l.rawInput.connSet.Has(conn) {
+				switch {
+				case netPkg.TCP.ACK && netPkg.IPv4 != nil:
+					// Batch RST calculations to avoid repeated window calculations
+					window := uint32(netPkg.TCP.Window)
+					baseSeq := netPkg.TCP.Ack
 					for i := 0; i < RSTNum; i++ {
-						actualSeq += uint32(netPkg.TCP.Window) * uint32(i)
-						slog.Debug("send RST, for connection:%v, seq:%v", &conn, actualSeq)
-						// forge a packet from local -> remote
-						err = SendRST(netPkg.Ethernet.DstMAC, netPkg.Ethernet.SrcMAC,
-							netPkg.IPv4.DstIP, netPkg.IPv4.SrcIP, netPkg.TCP.DstPort,
-							netPkg.TCP.SrcPort, actualSeq, l.handle)
-						if err != nil {
-							slog.Error("SendRST, for connection:%v, error:%v", &conn, err)
+						seq := baseSeq + window*uint32(i)
+						slog.Debug("send RST", "connection", &conn, "seq", seq)
+						if err := SendRST(
+							netPkg.Ethernet.DstMAC,
+							netPkg.Ethernet.SrcMAC,
+							netPkg.IPv4.DstIP,
+							netPkg.IPv4.SrcIP,
+							netPkg.TCP.DstPort,
+							netPkg.TCP.SrcPort,
+							seq,
+							l.handle,
+						); err != nil {
+							slog.Error("SendRST failed", "connection", &conn, "error", err)
 						}
 					}
-				} else if netPkg.TCP.SYN { // // new connection
-					slog.Debug("got SYN, remove %v from connSet", &conn)
+				case netPkg.TCP.SYN:
+					slog.Debug("got SYN", "connection", &conn)
 					l.rawInput.connSet.Remove(conn)
 				}
-			} else { // new connection
+			} else {
 				l.rawInput.outputChan <- netPkg
 			}
-		} else if l.rawInput.recordResponse && netPkg.Direction == http2.DirOutcoming {
+		case http2.DirOutcoming:
 			l.rawInput.outputChan <- netPkg
 		}
+
 	}
 	return nil
 }

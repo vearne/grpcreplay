@@ -7,7 +7,13 @@ import (
 
 type GoroutineSafeBuffer struct {
 	mu  sync.Mutex
-	buf bytes.Buffer
+	buf *bytes.Buffer
+}
+
+func NewGoroutineSafeBuffer() *GoroutineSafeBuffer {
+	var b GoroutineSafeBuffer
+	b.buf = bytes.NewBuffer([]byte{})
+	return &b
 }
 
 func (g *GoroutineSafeBuffer) Write(p []byte) (n int, err error) {

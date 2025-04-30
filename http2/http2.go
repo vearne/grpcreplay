@@ -20,9 +20,12 @@ import (
 	"time"
 )
 
+var (
+	WaitDefaultDuration = 1 * time.Second
+)
+
 const (
-	PseudoHeaderPath    = ":path"
-	WaitDefaultDuration = 3 * time.Second
+	PseudoHeaderPath = ":path"
 )
 
 const (
@@ -328,6 +331,7 @@ func (hc *Http2Conn) _processFrameData(f *FrameBase, item *HTTPItem) {
 				slog.Error("processFrameData, gunzip error:%v", err)
 				return
 			}
+			defer gzipReader.Close()
 			msg.EncodedMessage, err = io.ReadAll(gzipReader)
 			if err != nil {
 				slog.Error("processFrameData, gunzip error:%v", err)
@@ -495,7 +499,7 @@ func NewHTTPItem() *HTTPItem {
 	item.EndStream.Store(false)
 	item.EndHeader.Store(false)
 	item.Headers = &sync.Map{}
-	item.DataBuf = &util.GoroutineSafeBuffer{}
+	item.DataBuf = util.NewGoroutineSafeBuffer()
 	return &item
 }
 

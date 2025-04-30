@@ -6,6 +6,7 @@ import (
 	"github.com/vearne/grpcreplay/biz"
 	"github.com/vearne/grpcreplay/config"
 	"github.com/vearne/grpcreplay/consts"
+	"github.com/vearne/grpcreplay/http2"
 	"github.com/vearne/grpcreplay/util"
 	slog "github.com/vearne/simplelog"
 	"os"
@@ -123,6 +124,11 @@ func init() {
 
 	flag.StringVar(&settings.ProtoFileStr, "proto", "",
 		"(optional) proto source file or the directory containing the proto file.")
+
+	flag.DurationVar(&settings.WaitDefaultDuration, "wait-timeout", time.Second,
+		`If the output has been processed, the maximum time to wait for the input to be processed
+				--wait-timeout=3s			
+	`)
 }
 
 func main() {
@@ -205,6 +211,8 @@ func parseSettings(settings *config.AppSettings) {
 	} else {
 		settings.ProtoFiles = []string{settings.ProtoFileStr}
 	}
+
+	http2.WaitDefaultDuration = settings.WaitDefaultDuration
 }
 
 func printSettings(settings *config.AppSettings) {
@@ -227,4 +235,6 @@ func printSettings(settings *config.AppSettings) {
 		slog.Info("ProtoFileStr, %v", settings.ProtoFileStr)
 		slog.Info("ProtoFiles, %v", settings.ProtoFiles)
 	}
+
+	slog.Info("wait-timeout, %v", settings.WaitDefaultDuration)
 }
