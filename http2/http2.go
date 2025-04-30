@@ -20,9 +20,12 @@ import (
 	"time"
 )
 
+var (
+	WaitDefaultDuration = 1 * time.Second
+)
+
 const (
-	PseudoHeaderPath    = ":path"
-	WaitDefaultDuration = 3 * time.Second
+	PseudoHeaderPath = ":path"
 )
 
 const (

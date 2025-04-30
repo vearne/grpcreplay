@@ -107,4 +107,7 @@ type AppSettings struct {
 	// file or directory
 	ProtoFileStr string `json:"proto"`
 	ProtoFiles   []string
+
+	// If the output has been processed, the maximum time to wait for the input to be processed
+	WaitDefaultDuration time.Duration
 }

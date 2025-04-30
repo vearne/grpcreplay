@@ -95,6 +95,7 @@ func (p *TCPEventProcessor) OnEnter(toState string, args []interface{}) {
 		slog.Info("TCPEventProcessor connection [ESTABLISHED], DirectConn:%v", ts.dc.String())
 	} else if ts.State == StateClosed {
 		p := args[2].(*Processor)
+		delete(p.ConnStates, ts.dc)
 		delete(p.ConnRepository, ts.dc)
 		slog.Info("TCPEventProcessor connection [CLOSED], DirectConn:%v", ts.dc.String())
 	}
@@ -125,6 +126,7 @@ func InitTCPFSM(processor fsm.EventProcessor) *fsm.StateMachine {
 
 		// 3.
 		{From: StateEstablished, Event: EventReceiveRST, To: StateClosed, Action: "change-state"},
+		{From: StateListen, Event: EventReceiveRST, To: StateClosed, Action: "change-state"},
 	}
 
 	return fsm.NewStateMachine(delegate, transitions...)
