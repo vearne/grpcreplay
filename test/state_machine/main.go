@@ -62,6 +62,8 @@ func (p *TurnstileEventProcessor) OnActionFailure(action string, fromState strin
 	log.Printf("转门 %d 的状态从 %s to %s 改变失败， 原因: %v", t.ID, fromState, toState, err)
 }
 
+// main simulates a sequence of turnstile events using a finite state machine and logs the resulting state.
+// It triggers a series of "Push" and "Coin" events, handles errors, and compares the final turnstile state to an expected outcome.
 func main() {
 	ts := &Turnstile{
 		ID:     1,
@@ -128,6 +130,7 @@ func main() {
 	}
 }
 
+// compareTurnstile returns true if two Turnstile instances have identical IDs, counts, current state, and state history.
 func compareTurnstile(t1 *Turnstile, t2 *Turnstile) bool {
 	if t1.ID != t2.ID || t1.CoinCount != t2.CoinCount || t1.EventCount != t2.EventCount || t1.PassCount != t2.PassCount ||
 		t1.State != t2.State {
@@ -137,6 +140,7 @@ func compareTurnstile(t1 *Turnstile, t2 *Turnstile) bool {
 	return fmt.Sprint(t1.States) == fmt.Sprint(t2.States)
 }
 
+// initFSM initializes and returns a state machine for the turnstile with defined transitions and event handling logic.
 func initFSM() *fsm.StateMachine {
 	delegate := &fsm.DefaultDelegate{P: &TurnstileEventProcessor{}}
 

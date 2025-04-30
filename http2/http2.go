@@ -494,6 +494,7 @@ type HTTPItem struct {
 	DataBuf *util.GoroutineSafeBuffer `json:"-"`
 }
 
+// NewHTTPItem creates and initializes a new HTTPItem with default values and thread-safe buffers.
 func NewHTTPItem() *HTTPItem {
 	var item HTTPItem
 	item.EndStream.Store(false)

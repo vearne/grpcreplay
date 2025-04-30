@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// ListFilesRecursively traverses the directory tree rooted at dir and adds all .proto file paths to the provided StringSet.
+// Returns an error if the StringSet is nil, if the directory cannot be opened, or if a read or traversal error occurs.
 func ListFilesRecursively(dir string, set *StringSet) error {
 	if set == nil {
 		return errors.New("StringSet cannot be nil")
