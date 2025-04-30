@@ -30,6 +30,38 @@ func NewProcessor(input chan *NetPkg, recordResponse bool, finder PBFinder) *Pro
 	return &p
 }
 
+func (p *Processor) ProcessTCPPkg() {
+	// need to handle both inbound and outbound traffic
+	for pkg := range p.InputChan {
+		payload := pkg.TCP.Payload
+		dc := pkg.DirectConn()
+		slog.Debug("Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
+
+		if pkg.Direction == DirOutcoming {
+			dc = dc.Reverse()
+		}
+		ts, exist := p.ConnStates[dc]
+		if !exist {
+			p.ConnStates[dc] = NewTCPConnection(dc)
+			ts = p.ConnStates[dc]
+		}
+		// try to handling connection status
+		err := p.handleConnectionState(ts, pkg)
+		if err != nil {
+			slog.Warn("TCPStateMachine.Trigger, %v", err)
+		}
+
+		// data
+		if ts.State == StateEstablished && len(payload) > 0 {
+			if pkg.Direction == DirIncoming {
+				p.ProcessIncomingTCPPkg(pkg)
+			} else if p.RecordResponse && pkg.Direction == DirOutcoming {
+				p.ProcessOutComingTCPPkg(pkg)
+			}
+		}
+	}
+}
+
 func (p *Processor) ProcessIncomingTCPPkg(pkg *NetPkg) {
 	dc := pkg.DirectConn()
 	payload := pkg.TCP.Payload
@@ -66,40 +98,14 @@ func (p *Processor) ProcessOutComingTCPPkg(pkg *NetPkg) {
 	hc.Output.TCPBuffer.AddTCP(pkg.TCP)
 }
 
-func (p *Processor) ProcessTCPPkg() {
-	// need to handle both inbound and outbound traffic
-	for pkg := range p.InputChan {
-		payload := pkg.TCP.Payload
-		dc := pkg.DirectConn()
-		slog.Debug("Connection:%v, seq:%v, length:%v", dc.String(), pkg.TCP.Seq, len(payload))
-
-		if pkg.Direction == DirOutcoming {
-			dc = dc.Reverse()
-		}
-		ts, exist := p.ConnStates[dc]
-		if !exist {
-			p.ConnStates[dc] = NewTCPConnection(dc)
-			ts = p.ConnStates[dc]
-		}
-		// try to handling connection status
-		err := p.handleConnectionState(ts, pkg)
-		if err != nil {
-			slog.Warn("TCPStateMachine.Trigger, %v", err)
-		}
-
-		// data
-		if ts.State == StateEstablished && len(payload) > 0 {
-			if pkg.Direction == DirIncoming {
-				p.ProcessIncomingTCPPkg(pkg)
-			} else if p.RecordResponse && pkg.Direction == DirOutcoming {
-				p.ProcessOutComingTCPPkg(pkg)
-			}
-		}
-
-	}
-}
-
 func (p *Processor) handleConnectionState(ts *TCPConnectionState, pkg *NetPkg) error {
+	dc := pkg.DirectConn()
+	if pkg.Direction == DirOutcoming {
+		dc = dc.Reverse()
+	}
+	slog.Debug("handleConnectionState, [%v], seq:%v, SYN:%v,FIN:%v,ACK:%v",
+		dc.String(), pkg.TCP.Seq, pkg.TCP.SYN, pkg.TCP.FIN, pkg.TCP.ACK)
+
 	if len(pkg.TCP.Payload) > 0 {
 		return nil
 	}
@@ -107,6 +113,14 @@ func (p *Processor) handleConnectionState(ts *TCPConnectionState, pkg *NetPkg) e
 		return p.TCPStateMachine.Trigger(ts.State, EventReceiveSYN, ts, pkg, p)
 	} else if pkg.Direction == DirOutcoming && pkg.TCP.SYN && pkg.TCP.ACK {
 		return p.TCPStateMachine.Trigger(ts.State, EventSendSYNACK, ts, pkg, p)
+	} else if pkg.Direction == DirIncoming && pkg.TCP.FIN {
+		return p.TCPStateMachine.Trigger(ts.State, EventReceiveFIN, ts, pkg, p)
+	} else if pkg.Direction == DirOutcoming && pkg.TCP.FIN {
+		return p.TCPStateMachine.Trigger(ts.State, EventSendFIN, ts, pkg, p)
+	} else if pkg.Direction == DirIncoming && pkg.TCP.RST {
+		return p.TCPStateMachine.Trigger(ts.State, EventReceiveRST, ts, pkg, p)
+	} else if pkg.Direction == DirOutcoming && pkg.TCP.ACK {
+		return p.TCPStateMachine.Trigger(ts.State, EventSendACK, ts, pkg, p)
 	} else if pkg.Direction == DirIncoming && pkg.TCP.ACK {
 		return p.TCPStateMachine.Trigger(ts.State, EventReceiveACK, ts, pkg, p)
 	}

@@ -91,7 +91,7 @@ func (l *DeviceListener) listen() error {
 			} else { // new connection
 				l.rawInput.outputChan <- netPkg
 			}
-		} else if l.rawInput.recordResponse && netPkg.Direction == http2.DirOutcoming {
+		} else if netPkg.Direction == http2.DirOutcoming {
 			l.rawInput.outputChan <- netPkg
 		}
 	}
