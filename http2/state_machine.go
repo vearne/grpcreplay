@@ -78,7 +78,8 @@ func (p *TCPEventProcessor) OnEnter(toState string, args []interface{}) {
 	slog.Debug("OnEnter, DirectConn:%v, connection state -> %v", ts.dc.String(), toState)
 	// args []interface{}
 	// ts *TCPConnectionState, pkg *NetPkg, p *Processor
-	if ts.State == StateEstablished {
+	switch ts.State {
+	case StateEstablished:
 		p := args[2].(*Processor)
 		hc := NewHttp2Conn(ts.dc, http2initialHeaderTableSize, p)
 		p.ConnRepository[ts.dc] = hc
@@ -93,7 +94,7 @@ func (p *TCPEventProcessor) OnEnter(toState string, args []interface{}) {
 		hc.Output.TCPBuffer.SetExpectedSeq(pkg.TCP.Ack)
 
 		slog.Info("TCPEventProcessor connection [ESTABLISHED], DirectConn:%v", ts.dc.String())
-	} else if ts.State == StateClosed {
+	case StateClosed:
 		p := args[2].(*Processor)
 		delete(p.ConnStates, ts.dc)
 		delete(p.ConnRepository, ts.dc)
