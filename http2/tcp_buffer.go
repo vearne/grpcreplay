@@ -36,6 +36,10 @@ func NewTCPBuffer() *TCPBuffer {
 	return &sb
 }
 
+func (sb *TCPBuffer) SetExpectedSeq(expectedSeq uint32) {
+	sb.expectedSeq = expectedSeq
+}
+
 func (sb *TCPBuffer) Close() {
 	close(sb.closeChan)
 }

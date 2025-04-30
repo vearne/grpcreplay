@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,10 @@ import (
 )
 
 func ListFilesRecursively(dir string, set *StringSet) error {
+	if set == nil {
+		return errors.New("StringSet cannot be nil")
+	}
+	dir = filepath.Clean(dir)
 	d, err := os.Open(dir)
 	if err != nil {
 		return fmt.Errorf("can't open %s: %v", dir, err)

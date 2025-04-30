@@ -16,6 +16,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/smallnest/gofsm v0.0.0-20190306032117-f5ba1bddca7b
 	github.com/stretchr/testify v1.9.0
 	github.com/vearne/gtimer v0.0.0-20230826015705-eaf6bae03335
 	github.com/vearne/simplelog v0.0.2
