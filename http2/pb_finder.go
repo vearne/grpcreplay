@@ -34,6 +34,7 @@ type PBFinderDelegate struct {
 	innerCache *cache.Cache
 }
 
+// NewPBFinderDelegate creates a new PBFinderDelegate with the given descriptor source and initializes its internal cache.
 func NewPBFinderDelegate(ds grpcurl.DescriptorSource) *PBFinderDelegate {
 	var f PBFinderDelegate
 	f.ds = ds
@@ -98,6 +99,7 @@ func (f *PBFinderDelegate) GetDescriptorSource() grpcurl.DescriptorSource {
 	return f.ds
 }
 
+// NewFilePBFinder creates a PBFinder that resolves protobuf message types using the provided proto files.
 func NewFilePBFinder(protoFiles []string) PBFinder {
 	ds, err := grpcurl.DescriptorSourceFromProtoFiles(nil, protoFiles...)
 	if err != nil {
@@ -107,6 +109,7 @@ func NewFilePBFinder(protoFiles []string) PBFinder {
 	return NewPBFinderDelegate(ds)
 }
 
+// NewReflectionPBFinder creates a PBFinder that uses gRPC server reflection to resolve protobuf message types for services at the specified address.
 func NewReflectionPBFinder(addr string) PBFinder {
 	ctx := context.Background()
 	cc, err := grpcurl.BlockingDial(ctx, "tcp", addr, nil)
@@ -120,6 +123,8 @@ func NewReflectionPBFinder(addr string) PBFinder {
 	return NewPBFinderDelegate(ds)
 }
 
+// getDataType converts a desc.MessageDescriptor to a protoreflect.MessageDescriptor, including all dependencies.
+// Returns an error if the conversion fails or the descriptor cannot be found.
 func getDataType(dataType *desc.MessageDescriptor) (protoreflect.MessageDescriptor, error) {
 	// get FileDescriptor
 	strSet := util.NewStringSet()
@@ -156,6 +161,7 @@ func parseSymbol(svcAndMethod string) (string, string) {
 	return svcAndMethod[:pos], svcAndMethod[pos+1:]
 }
 
+// constructFileDescriptorSet recursively adds a file descriptor and all its dependencies to a FileDescriptorSet, avoiding duplicates.
 func constructFileDescriptorSet(set *util.StringSet, fdSet *descriptorpb.FileDescriptorSet, fd *desc.FileDescriptor) {
 	if !set.Has(fd.GetName()) {
 		fdSet.File = append(fdSet.File, fd.AsFileDescriptorProto())

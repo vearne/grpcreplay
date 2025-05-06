@@ -36,6 +36,7 @@ func (s SearchServer) CurrentTime(ctx context.Context, request *pb.TimeRequest) 
 	return &pb.TimeResponse{CurrentTime: time.Now().Format(time.RFC3339)}, nil
 }
 
+// main starts the gRPC server with logging and recovery middleware, registers the search service and reflection, and listens for incoming connections on the configured address.
 func main() {
 	opts := []grpc.ServerOption{
 		//grpc.Creds(c),

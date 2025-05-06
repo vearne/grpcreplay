@@ -24,6 +24,7 @@ type TCPBuffer struct {
 	buffer      *bytes.Buffer
 }
 
+// NewTCPBuffer creates and initializes a new TCPBuffer for managing ordered TCP packet delivery.
 func NewTCPBuffer() *TCPBuffer {
 	var sb TCPBuffer
 	sb.List = skiplist.New(skiplist.Uint32)
