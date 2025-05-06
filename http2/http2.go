@@ -248,7 +248,9 @@ func (hc *Http2Conn) DealInput() {
 }
 
 func (hc *Http2Conn) ProcessFrame(f *FrameBase) {
-	slog.Debug("[ProcessFrame]: %v", GetFrameType(f.Type))
+	slog.Debug("[ProcessFrame]: Connection:%v, StreamID:%v, %v",
+		f.DirectConn.String(), f.StreamID, GetFrameType(f.Type))
+
 	switch f.Type {
 	case FrameTypeData:
 		// parse data
@@ -296,11 +298,12 @@ func (hc *Http2Conn) processFrameData(f *FrameBase) {
 }
 
 func (hc *Http2Conn) FinishStream(stream *Stream) {
+	slog.Debug("FinishStream, streamId:%v", stream.StreamID)
 	pMsg, pErr := stream.toMsg(hc.Processor.Finder)
 	if pErr == nil {
 		hc.Processor.OutputChan <- pMsg
 	} else {
-		slog.Warn("stream.toMsg, error:%v", pErr)
+		slog.Warn("stream.toMsg, streamID:%v, error:%v", stream.StreamID, pErr)
 	}
 	stream.Reset()
 }

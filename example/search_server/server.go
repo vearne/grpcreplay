@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"log"
+	"math/rand"
 	"net"
 	"runtime/debug"
 	"time"
@@ -21,14 +22,17 @@ const address = ":35001"
 type SearchServer struct{}
 
 func (s SearchServer) SendMuchData(ctx context.Context, request *pb.MuchRequest) (*pb.MuchResponse, error) {
+	time.Sleep(time.Duration(20+rand.Intn(50)) * time.Millisecond)
 	return &pb.MuchResponse{RequestId: request.RequestId}, nil
 }
 
 func (s SearchServer) Search(ctx context.Context, in *pb.SearchRequest) (*pb.SearchResponse, error) {
+	time.Sleep(time.Duration(20+rand.Intn(50)) * time.Millisecond)
 	return &pb.SearchResponse{StaffID: 100, StaffName: in.StaffName}, nil
 }
 
 func (s SearchServer) CurrentTime(ctx context.Context, request *pb.TimeRequest) (*pb.TimeResponse, error) {
+	time.Sleep(time.Duration(20+rand.Intn(50)) * time.Millisecond)
 	return &pb.TimeResponse{CurrentTime: time.Now().Format(time.RFC3339)}, nil
 }
 
