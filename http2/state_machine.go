@@ -40,6 +40,7 @@ type TCPConnectionState struct {
 	States []string
 }
 
+// NewTCPConnection creates a new TCPConnectionState initialized in the LISTEN state with the provided direct connection.
 func NewTCPConnection(dc DirectConn) *TCPConnectionState {
 	var t TCPConnectionState
 	t.dc = dc
@@ -102,6 +103,7 @@ func (p *TCPEventProcessor) OnEnter(toState string, args []interface{}) {
 	}
 }
 
+// InitTCPFSM initializes and returns a TCP state machine with predefined transitions for managing TCP connection states from the server's perspective.
 func InitTCPFSM(processor fsm.EventProcessor) *fsm.StateMachine {
 	delegate := &fsm.DefaultDelegate{P: processor}
 	// https://juejin.cn/post/6844904070000410631

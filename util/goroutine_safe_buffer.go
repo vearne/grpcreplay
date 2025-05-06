@@ -10,6 +10,7 @@ type GoroutineSafeBuffer struct {
 	buf *bytes.Buffer
 }
 
+// NewGoroutineSafeBuffer creates and returns a new GoroutineSafeBuffer with an empty underlying buffer.
 func NewGoroutineSafeBuffer() *GoroutineSafeBuffer {
 	var b GoroutineSafeBuffer
 	b.buf = bytes.NewBuffer([]byte{})

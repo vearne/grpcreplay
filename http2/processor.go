@@ -17,6 +17,7 @@ type Processor struct {
 	TCPStateMachine *fsm.StateMachine
 }
 
+// NewProcessor creates and initializes a new Processor for handling HTTP/2 packet processing and TCP connection state management.
 func NewProcessor(input chan *NetPkg, recordResponse bool, finder PBFinder) *Processor {
 	var p Processor
 	p.ConnStates = make(map[DirectConn]*TCPConnectionState, 100)
@@ -127,6 +128,7 @@ func (p *Processor) handleConnectionState(ts *TCPConnectionState, pkg *NetPkg) e
 	return nil
 }
 
+// IsConnPreface checks whether the given payload starts with a valid HTTP/2 connection preface.
 func IsConnPreface(payload []byte) bool {
 	if len(payload) >= ConnectionPrefaceSize {
 		b := payload[0:ConnectionPrefaceSize]

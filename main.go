@@ -28,6 +28,7 @@ const banner string = `
 var settings config.AppSettings
 var version bool
 
+// init registers all command-line flags for configuring the grpcreplay tool, including input and output sources, filtering, rate limiting, proto file paths, and operational timeouts.
 func init() {
 	flag.BoolVar(&version, "version", false,
 		"print version")
@@ -131,6 +132,7 @@ func init() {
 	`)
 }
 
+// main is the entry point for the grpcreplay command-line tool, initializing configuration, setting up components, and running the main event loop until termination or timeout.
 func main() {
 	fmt.Print(banner)
 
@@ -186,6 +188,9 @@ func main() {
 	os.Exit(exit)
 }
 
+// parseSettings processes the proto file path in the application settings, populates the list of proto files, and sets the default HTTP/2 wait timeout.
+// If the proto file path is a directory, all files within it are added; if it is a file, only that file is used.
+// Terminates the application with a fatal log if the specified path does not exist or cannot be accessed.
 func parseSettings(settings *config.AppSettings) {
 	settings.ProtoFileStr = strings.TrimSpace(settings.ProtoFileStr)
 	if len(settings.ProtoFileStr) <= 0 {
@@ -215,6 +220,7 @@ func parseSettings(settings *config.AppSettings) {
 	http2.WaitDefaultDuration = settings.WaitDefaultDuration
 }
 
+// printSettings logs the current application configuration settings for input, output, proto files, and wait timeout.
 func printSettings(settings *config.AppSettings) {
 	slog.Info("input-raw, %v", settings.InputRAW)
 	slog.Info("input-file-directory, %v", settings.InputFileDir)
