@@ -5,6 +5,9 @@ GrpcReplay is a network monitoring tool that can record your grpc traffic (Unary
 and use it for grayscale testing, stress testing or traffic analysis.
 
 * [中文 README](https://github.com/vearne/grpcreplay/blob/main/README_zh.md)
+* [Architecture Design](https://github.com/vearne/grpcreplay/blob/main/ARCHITECTURE.md)
+* [Usage Examples and Best Practices](https://github.com/vearne/grpcreplay/blob/main/EXAMPLES.md)
+* [Contributing Guide](https://github.com/vearne/grpcreplay/blob/main/CONTRIBUTING.md)
 
 ## Feature
 * support filter

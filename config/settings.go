@@ -1,3 +1,5 @@
+// Package config 包含 grpcreplay 的配置管理相关功能。
+// 该包定义了应用程序的配置结构和命令行参数解析器。
 package config
 
 import (
@@ -6,8 +8,11 @@ import (
 	"time"
 )
 
+// MultiStringOption 实现了可以接受多个值的字符串命令行参数。
+// 它允许同一个参数名被多次指定，所有值都会被收集到一个切片中。
+// 例如：--input-raw="127.0.0.1:8080" --input-raw="127.0.0.1:8081"
 type MultiStringOption struct {
-	Params *[]string
+	Params *[]string // 指向存储所有参数值的切片的指针
 }
 
 func (h *MultiStringOption) String() string {
@@ -27,9 +32,10 @@ func (h *MultiStringOption) Set(value string) error {
 	return nil
 }
 
-// MultiOption allows to specify multiple flags with same name and collects all values into array
+// MultiIntOption 实现了可以接受多个值的整数命令行参数。
+// 它允许同一个参数名被多次指定，所有值都会被收集到一个切片中。
 type MultiIntOption struct {
-	Params *[]int
+	Params *[]int // 指向存储所有参数值的切片的指针
 }
 
 func (h *MultiIntOption) String() string {
@@ -51,7 +57,8 @@ func (h *MultiIntOption) Set(value string) error {
 	return nil
 }
 
-// AppSettings is the struct of main configuration
+// AppSettings 是主配置结构体，包含了 grpcreplay 应用程序的所有配置选项。
+// 该结构体的字段对应于命令行参数，包括输入源、输出目标、过滤器、限流器等配置。
 type AppSettings struct {
 	ExitAfter time.Duration `json:"exit-after"`
 
