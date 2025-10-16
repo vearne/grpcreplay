@@ -5,6 +5,9 @@ GrpcReplay 是一个网络监控工具，可以记录您的 grpc流量(Unary RPC
 
 
 * [English README](https://github.com/vearne/grpcreplay/blob/main/README.md)
+* [架构设计文档](https://github.com/vearne/grpcreplay/blob/main/ARCHITECTURE.md)
+* [使用示例和最佳实践](https://github.com/vearne/grpcreplay/blob/main/EXAMPLES.md)
+* [贡献指南](https://github.com/vearne/grpcreplay/blob/main/CONTRIBUTING.md)
 
 ## 特性
 * 支持过滤器
