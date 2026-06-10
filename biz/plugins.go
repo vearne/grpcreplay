@@ -10,7 +10,6 @@ import (
 	slog "github.com/vearne/simplelog"
 	"net"
 	"net/url"
-	"reflect"
 	"strings"
 )
 
@@ -41,7 +40,12 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if finder == nil {
 			finder = http2.NewReflectionPBFinder(findOneServerAddr(host, port))
 		}
-		plugins.registerPlugin(plugin.NewRAWInput, item, settings.RecordResponse, finder)
+		p, err := plugin.NewRAWInput(item, settings.RecordResponse, finder)
+		if err != nil {
+			slog.Fatal("NewRAWInput:%v", err)
+		}
+		plugins.Inputs = append(plugins.Inputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	for _, path := range settings.InputFileDir {
@@ -50,24 +54,38 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 			slog.Fatal("%v", err)
 		}
 		slog.Debug("NewFileDirInput, path:%v", path)
-		plugins.registerPlugin(plugin.NewFileDirInput, settings.Codec, path,
+		p := plugin.NewFileDirInput(settings.Codec, path,
 			settings.InputFileReadDepth, settings.InputFileReplaySpeed)
+		plugins.Inputs = append(plugins.Inputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	if len(settings.InputRocketMQNameServer) > 0 {
-		plugins.registerPlugin(plugin.NewRocketMQInput, settings.InputRocketMQNameServer,
+		p, err := plugin.NewRocketMQInput(settings.InputRocketMQNameServer,
 			settings.InputRocketMQTopic, settings.InputRocketMQGroupName,
 			settings.InputRocketMQAccessKey, settings.InputRocketMQSecretKey)
+		if err != nil {
+			slog.Fatal("NewRocketMQInput:%v", err)
+		}
+		plugins.Inputs = append(plugins.Inputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 	// ----------output----------
 	if settings.OutputStdout {
 		slog.Debug("NewStdOutput")
-		plugins.registerPlugin(plugin.NewStdOutput, settings.Codec)
+		p := plugin.NewStdOutput(settings.Codec)
+		plugins.Outputs = append(plugins.Outputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	if len(settings.OutputRocketMQNameServer) > 0 {
-		plugins.registerPlugin(plugin.NewRocketMQOutput, settings.OutputRocketMQNameServer,
+		p, err := plugin.NewRocketMQOutput(settings.OutputRocketMQNameServer,
 			settings.OutputRocketMQTopic, settings.OutputRocketMQAccessKey, settings.OutputRocketMQSecretKey)
+		if err != nil {
+			slog.Fatal("NewRocketMQOutput:%v", err)
+		}
+		plugins.Outputs = append(plugins.Outputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	for _, item := range settings.OutputGRPC {
@@ -78,7 +96,9 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 		if finder == nil {
 			finder = http2.NewReflectionPBFinder(addr)
 		}
-		plugins.registerPlugin(plugin.NewGRPCOutput, addr, settings.OutputGRPCWorkerNumber, finder)
+		p := plugin.NewGRPCOutput(addr, settings.OutputGRPCWorkerNumber, finder)
+		plugins.Outputs = append(plugins.Outputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	for _, path := range settings.OutputFileDir {
@@ -91,7 +111,9 @@ func NewPlugins(settings *config.AppSettings) *InOutPlugins {
 			MaxBackups: settings.OutputFileMaxBackups,
 			MaxAge:     settings.OutputFileMaxAge,
 		}
-		plugins.registerPlugin(plugin.NewFileDirOutput, settings.Codec, path, cf)
+		p := plugin.NewFileDirOutput(settings.Codec, path, cf)
+		plugins.Outputs = append(plugins.Outputs, p)
+		plugins.All = append(plugins.All, p)
 	}
 
 	return plugins
@@ -106,31 +128,6 @@ func extractAddr(outputGrpc string) (string, error) {
 		return "nil", err
 	}
 	return u.Host, nil
-}
-
-// Automatically detects type of plugin and initialize it
-func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...interface{}) {
-
-	vc := reflect.ValueOf(constructor)
-
-	// Pre-processing options to make it work with reflect
-	vo := []reflect.Value{}
-	for _, oi := range options {
-		vo = append(vo, reflect.ValueOf(oi))
-	}
-
-	// Calling our constructor with list of given options
-	plugin := vc.Call(vo)[0].Interface()
-
-	// Some of the output can be Readers as well because return responses
-	if r, ok := plugin.(PluginReader); ok {
-		plugins.Inputs = append(plugins.Inputs, r)
-	}
-
-	if w, ok := plugin.(PluginWriter); ok {
-		plugins.Outputs = append(plugins.Outputs, w)
-	}
-	plugins.All = append(plugins.All, plugin)
 }
 
 func (plugins *InOutPlugins) String() string {

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"io"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -241,7 +242,10 @@ func (i *RAWInput) Listen() {
 
 // PluginRead reads meassage from this plugin
 func (i *RAWInput) Read() (*protocol.Message, error) {
-	msg := <-i.Processor.OutputChan
+	msg, ok := <-i.Processor.OutputChan
+	if !ok {
+		return nil, io.EOF
+	}
 	return msg, nil
 }
 
@@ -250,6 +254,7 @@ func (i *RAWInput) Close() error {
 	for _, listener := range i.listenerList {
 		listener.Close()
 	}
+	close(i.Processor.OutputChan)
 	return nil
 }
 

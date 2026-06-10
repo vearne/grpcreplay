@@ -185,6 +185,8 @@ func main() {
 		exit = 0
 	}
 	//emitter.Close()
+	slog.Info("shutting down...")
+	emitter.Close()
 	os.Exit(exit)
 }
 
