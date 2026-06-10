@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
@@ -59,7 +60,10 @@ func NewRocketMQInput(nameServers []string, topic, groupName string, accessKey, 
 }
 
 func (in *RocketMQInput) Read() (*protocol.Message, error) {
-	msgExt := <-in.msgChan
+	msgExt, ok := <-in.msgChan
+	if !ok {
+		return nil, io.EOF
+	}
 	var pm protocol.Message
 	err := json.Unmarshal(msgExt.Body, &pm)
 	if err != nil {
@@ -69,5 +73,7 @@ func (in *RocketMQInput) Read() (*protocol.Message, error) {
 }
 
 func (in *RocketMQInput) Close() error {
-	return in.pushConsumer.Shutdown()
+	err := in.pushConsumer.Shutdown()
+	close(in.msgChan)
+	return err
 }

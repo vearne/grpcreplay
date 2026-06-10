@@ -73,6 +73,9 @@ func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	for {
 		msg, err := src.Read()
 		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			slog.Error("src.Read:%v", err)
 			continue
 		}

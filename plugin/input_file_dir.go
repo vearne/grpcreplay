@@ -102,11 +102,15 @@ func (in *FileDirInput) addTaskToTimer(msg *protocol.Message) {
 }
 
 func (in *FileDirInput) Read() (msg *protocol.Message, err error) {
-	msg = <-in.msgChan
+	msg, ok := <-in.msgChan
+	if !ok {
+		return nil, io.EOF
+	}
 	return msg, nil
 }
 
 func (in *FileDirInput) Close() error {
+	close(in.msgChan)
 	return in.reader.Close()
 }
 
