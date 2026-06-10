@@ -1,8 +1,8 @@
 module github.com/vearne/grpcreplay
 
-go 1.23.0
+go 1.25.0
 
-toolchain go1.23.6
+toolchain go1.25.9
 
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
